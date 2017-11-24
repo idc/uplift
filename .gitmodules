@@ -4,3 +4,6 @@
 [submodule "xenia_base"]
 	path = xenia_base
 	url = https://github.com/idc/xenia_base
+[submodule "xbyak"]
+	path = xbyak
+	url = https://github.com/herumi/xbyak.git
