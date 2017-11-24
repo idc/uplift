@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="stdafx">
+      <UniqueIdentifier>{d04c7808-9b83-4438-b8ee-649dc3c96dbe}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\stdafx\stdafx.h">
+      <Filter>stdafx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stdafx\targetver.h">
+      <Filter>stdafx</Filter>
+    </ClInclude>
+    <ClInclude Include="src\loader.hpp" />
+    <ClInclude Include="src\linkable.hpp" />
+    <ClInclude Include="src\match.hpp" />
+    <ClInclude Include="src\helpers.hpp" />
+    <ClInclude Include="src\dynamic_info.hpp" />
+    <ClInclude Include="src\program_info.hpp" />
+    <ClInclude Include="src\syscalls.hpp" />
+    <ClInclude Include="src\bmi1.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\stdafx\stdafx.cpp">
+      <Filter>stdafx</Filter>
+    </ClCompile>
+    <ClCompile Include="src\loader.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\linkable.cpp" />
+    <ClCompile Include="src\match.cpp" />
+    <ClCompile Include="src\helpers.cpp" />
+    <ClCompile Include="src\dynamic_info.cpp" />
+    <ClCompile Include="src\program_info.cpp" />
+    <ClCompile Include="src\syscalls.cpp" />
+    <ClCompile Include="src\bmi1.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\syscall_table.inl" />
+  </ItemGroup>
+</Project>
