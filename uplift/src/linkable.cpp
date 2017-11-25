@@ -556,6 +556,7 @@ void Linkable::AnalyzeAndPatchCode()
 {
   if (name_ == L"libkernel.prx")
   {
+    // nasty hack to enable libkernel debug messages, only valid for 3.55
     *reinterpret_cast<uint32_t*>(&base_address_[0x6036C]) = 0xFFFFFFFF;
   }
 
