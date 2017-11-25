@@ -4,6 +4,12 @@
     <Filter Include="stdafx">
       <UniqueIdentifier>{d04c7808-9b83-4438-b8ee-649dc3c96dbe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="objects">
+      <UniqueIdentifier>{53ef6530-3418-4407-bd0c-042da0c7c4f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="devices">
+      <UniqueIdentifier>{5c8cbee7-0e08-4d69-89be-e53468c6204a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx\stdafx.h">
@@ -23,6 +29,21 @@
     <ClInclude Include="src\code_generators.hpp" />
     <ClInclude Include="src\rip_zone.hpp" />
     <ClInclude Include="src\rip_pointers.hpp" />
+    <ClInclude Include="src\ksocket.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\object_table.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\notification_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\kobject.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dipsw_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -38,6 +59,21 @@
     <ClCompile Include="src\syscalls.cpp" />
     <ClCompile Include="src\bmi1.cpp" />
     <ClCompile Include="src\code_generators.cpp" />
+    <ClCompile Include="src\object_table.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ksocket.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\notification_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\kobject.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dipsw_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\syscall_table.inl" />

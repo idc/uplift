@@ -23,6 +23,7 @@ using namespace uplift;
 
 Loader::Loader()
   : cpu_()
+  , object_table_()
   , base_path_()
   , fsbase_(0)
   , entrypoint_(nullptr)

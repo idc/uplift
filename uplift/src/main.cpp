@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <xenia/base/exception_handler.h>
+#include <xenia/base/socket.h>
 #include <xenia/base/string.h>
 
 #include "../../xbyak/xbyak/xbyak_util.h"
@@ -10,6 +11,11 @@
 
 int main(int argc, char* argv[])
 {
+#ifdef WIN32
+  WSADATA wsa_data;
+  WSAStartup(MAKEWORD(2, 2), &wsa_data);
+#endif
+
   uplift::Loader loader;
 
   bool missing_feature = false;

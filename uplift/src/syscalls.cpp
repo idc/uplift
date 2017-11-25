@@ -7,13 +7,19 @@
 #include "syscalls.hpp"
 #include "helpers.hpp"
 
+#include "dipsw_device.hpp"
+#include "notification_device.hpp"
+#include "ksocket.hpp"
+
 using namespace uplift;
+using namespace uplift::devices;
+using namespace uplift::objects;
 
 #define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Loader* loader, SyscallReturnValue& retval, __VA_ARGS__)
 
 SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
 {
-  if (fd == 1 || fd == 2)
+  if (fd == 1 || fd == 2) // stdout, stderr
   {
     auto b = static_cast<const char*>(buf);
     for (size_t i = 0; i < nbytes; ++i, ++b)
@@ -23,11 +29,21 @@ SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
     retval.val = nbytes;
     return true;
   }
-  else if (fd == 0x0BEEF002)
+  else
   {
-    printf("NOTIFICATION: %s\n", &static_cast<const char*>(buf)[0x28]);
-    retval.val = nbytes;
-    return true;
+    auto object = loader->object_table()->LookupObject((HANDLE)fd);
+    if (object)
+    {
+      size_t written;
+      auto result = object->Write(buf, nbytes, &written);
+      if (result)
+      {
+        retval.val = result;
+        return false;
+      }
+      retval.val = written;
+      return true;
+    }
   }
 
   retval.val = -1;
@@ -43,17 +59,26 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
 
   if (path == "/dev/dipsw")
   {
-    retval.val = 0x0BEEF001u;
+    auto device = object_ref<DipswDevice>(new DipswDevice(loader));
+    auto result = device->Initialize();
+    if (result)
+    {
+      retval.val = result;
+      return false;
+    }
+    retval.val = device->handle();
     return true;
   }
-  else if (path == "/dev/notification0")
+  else if (path == "/dev/notification0" || path == "/dev/notification1")
   {
-    retval.val = 0x0BEEF002u;
-    return true;
-  }
-  else if (path == "/dev/notification1")
-  {
-    retval.val = 0x0BEEF003u;
+    auto device = object_ref<NotificationDevice>(new NotificationDevice(loader));
+    auto result = device->Initialize();
+    if (result)
+    {
+      retval.val = result;
+      return false;
+    }
+    retval.val = device->handle();
     return true;
   }
 
@@ -64,14 +89,16 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
 
 SYSCALL_IMPL(close, int fd)
 {
-  if (fd == 0x0BEEF001)
+  auto object = loader->object_table()->LookupObject((HANDLE)fd);
+  if (object)
   {
-    retval.val = 0;
-    return true;
+    object->Close();
+    object->ReleaseHandle();
+    return 0;
   }
 
   assert_always();
-  retval.val = -1;
+  retval.val = 9;
   return false;
 }
 
@@ -83,29 +110,65 @@ SYSCALL_IMPL(getpid)
 
 SYSCALL_IMPL(ioctl, int fd, uint32_t request, void* argp)
 {
-  if (fd == 0x0BEEF001)
+  const char* labels[] = { "!", "void", "out", "void+out", "in", "void+in", "out+in", "void+out+in" };
+  auto label = labels[(request >> 29) & 7u];
+  printf("ioctl(%d): [%x] inout=%s, group=%c, num=%u, len=%u\n",
+         fd, request, label, (request >> 8) & 0xFFu, request & 0xFFu, (request >> 16) & 0x1FFFu);
+
+  auto object = loader->object_table()->LookupObject((HANDLE)fd);
+  if (object)
   {
-    if (request == 0x40048806)
+    retval.val = object->IOControl(request, argp);
+    return retval.val != 0;
+  }
+
+  assert_always();
+  retval.val = 9;
+  return false;
+}
+
+SYSCALL_IMPL(netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t data_size)
+{
+  switch (op)
+  {
+    case 20: // bnet_get_secure_seed
     {
-      *static_cast<uint32_t*>(argp) = 1;
-      retval.val = 0;
-      return true;
-    }
-    else if (request == 0x40048807)
-    {
-      *static_cast<uint32_t*>(argp) = 0;
-      retval.val = 0;
-      return true;
-    }
-    else if (request == 0x40088808)
-    {
-      *static_cast<uint64_t*>(argp) = 0;
+      *static_cast<uint32_t*>(data_buffer) = 4; // totally secure number
       retval.val = 0;
       return true;
     }
   }
 
   assert_always();
+  retval.val = -1;
+  return false;
+}
+
+SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
+{
+  auto socket = object_ref<Socket>(new Socket(loader));
+  auto result = socket->Initialize(
+    static_cast<Socket::Domain>(domain),
+    static_cast<Socket::Type>(type),
+    static_cast<Socket::Protocol>(protocol));
+  if (result)
+  {
+    socket->Release();
+    retval.val = result;
+    return false;
+  }
+  loader->object_table()->AddNameMapping(name, socket->handle());
+  retval.val = socket->handle();
+  return true;
+}
+
+SYSCALL_IMPL(socketclose, int fd)
+{
+  return SYSCALLS::close(loader, retval, fd);
+}
+
+SYSCALL_IMPL(gettimeofday, void* tp, void* tzp)
+{
   retval.val = -1;
   return false;
 }
@@ -241,7 +304,7 @@ SYSCALL_IMPL(rtprio_thread, int function, uint64_t lwpid, void* rtp)
   return true;
 }
 
-SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int	flags, int fd, off_t offset)
+SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int flags, int fd, off_t offset)
 {
   auto access = xe::memory::PageAccess::kReadWrite;
   auto allocation_type = xe::memory::AllocationType::kReserveCommit;
@@ -295,6 +358,11 @@ SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
 {
   printf("namedobj_create: %s %p %x\n", name, arg2, arg3);
   retval.val = ++loader->next_namedobj_id_;
+  return true;
+}
+
+SYSCALL_IMPL(namedobj_delete)
+{
   return true;
 }
 
@@ -539,8 +607,78 @@ SYSCALL_IMPL(get_proc_type_info, void* vtype_info)
   return true;
 }
 
-SYSCALL_IMPL(ipmimgr_call)
+enum class ipmimgr_op : uint32_t
 {
+  Create = 2,
+  Destroy = 3,
+  Trace = 16,
+  __u529 = 529,
+  __u530 = 530,
+};
+
+SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, uint8_t* data_buffer, size_t data_size, uint64_t cookie)
+{
+  printf("ipmimgr_call: %u, %u, %p, %p, %I64x, %I64x\n", op, subop, error, data_buffer, data_size, cookie);
+
+  if (data_size > 64)
+  {
+    retval.val = 0x800E0001;
+    return false;
+  }
+
+  switch (static_cast<ipmimgr_op>(op))
+  {
+    case ipmimgr_op::Create:
+    {
+      struct op_arg_3
+      {
+        uint8_t unknown_0[336];
+      };
+
+      struct op_args
+      {
+        void* arg1;
+        const char* arg2;
+        op_arg_3* arg3;
+      };
+      auto args = reinterpret_cast<op_args*>(data_buffer);
+
+      printf("ipmimgr_call create: %s\n", args->arg2);
+
+      *error = 0;
+      retval.val = 0;
+      return true;
+    }
+
+    case ipmimgr_op::Destroy:
+    {
+      *error = 0;
+      retval.val = 0;
+      return true;
+    }
+
+    case ipmimgr_op::Trace:
+    {
+      if (!data_buffer || data_size < 64)
+      {
+        retval.val = 22; // EINVAL
+        return false;
+      }
+
+      *error = 0;
+      retval.val = 0;
+      return true;
+    }
+
+    case ipmimgr_op::__u529:
+    case ipmimgr_op::__u530:
+    {
+      *error = -1;
+      retval.val = 0;
+      return true;
+    }
+  }
+
   assert_always();
   retval.val = -1;
   return false;

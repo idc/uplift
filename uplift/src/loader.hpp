@@ -8,6 +8,7 @@
 #include "../../xbyak/xbyak/xbyak_util.h"
 
 #include "linkable.hpp"
+#include "object_table.hpp"
 #include "syscalls.hpp"
 
 namespace uplift
@@ -24,6 +25,8 @@ namespace uplift
     {
       return cpu_.has(type);
     };
+
+    ObjectTable* object_table() { return &object_table_; }
 
     void* fsbase() const { return fsbase_; }
     void* syscall_handler() const;
@@ -52,6 +55,8 @@ namespace uplift
     bool RelocateObjects();
 
     Xbyak::util::Cpu cpu_;
+    ObjectTable object_table_;
+
     std::wstring base_path_;
     void* fsbase_;
     void* entrypoint_;
