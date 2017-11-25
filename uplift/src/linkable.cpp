@@ -433,7 +433,7 @@ bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointe
     std::memcpy(rip_code, trampoline_code, trampoline_size);
 
     auto tail = reinterpret_cast<Generator::Tail*>(&rip_code[trampoline_size - sizeof(Generator::Tail)]);
-    tail->target = target;
+    tail->target = &target[insn->size];
     tail->rip_pointers = rip_pointers;
 
     if (trampoline_size < aligned_size)
@@ -449,7 +449,7 @@ bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointe
 
     if (5 < insn->size)
     {
-      std::memset(&target[5], 0x90, insn->size - 5);
+      std::memset(&target[5], 0xCC, insn->size - 5);
     }
 
     return true;
@@ -482,7 +482,7 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
     std::memcpy(rip_code, trampoline_code, trampoline_size);
 
     auto tail = reinterpret_cast<Generator::Tail*>(&rip_code[trampoline_size - sizeof(Generator::Tail)]);
-    tail->target = target;
+    tail->target = &target[target_size];
     tail->rip_pointers = rip_pointers;
 
     if (trampoline_size < aligned_size)
@@ -514,7 +514,7 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
     std::memcpy(rip_code, trampoline_code, trampoline_size);
 
     auto tail = reinterpret_cast<Generator::Tail*>(&rip_code[trampoline_size - sizeof(Generator::Tail)]);
-    tail->target = target;
+    tail->target = &target[target_size];
     tail->rip_pointers = rip_pointers;
 
     if (trampoline_size < aligned_size)
@@ -533,6 +533,22 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
   }
   assert_always();
   return false;
+}
+
+bool hook_bmi1_instruction(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointers, RIPZone& rip_zone)
+{
+  //assert_always();
+  return true;
+}
+
+bool is_bmi1(x86_insn op)
+{
+  return op == X86_INS_ANDN ||
+    op == X86_INS_BEXTR ||
+    op == X86_INS_BLSI ||
+    op == X86_INS_BLSMSK ||
+    op == X86_INS_BLSR ||
+    op == X86_INS_TZCNT;
 }
 
 void Linkable::AnalyzeAndPatchCode()
@@ -602,7 +618,7 @@ void Linkable::AnalyzeAndPatchCode()
       else if (IS_SYSCALL_MATCH(naked_syscall_pattern))
       {
         auto syscall_id = *reinterpret_cast<uint32_t*>(&target[-4]);
-        hook_syscall(syscall_id, &target[-7], _countof(syscall_pattern), rip_pointers_, rip_zone_);
+        hook_syscall(syscall_id, &target[-7], _countof(naked_syscall_pattern), rip_pointers_, rip_zone_);
       }
       else
       {
@@ -625,6 +641,15 @@ void Linkable::AnalyzeAndPatchCode()
     else if (insn->id == X86_INS_INTO)
     {
       assert_unhandled_case(X86_INS_INTO);
+    }
+    else if (!loader_->cpu_has(Xbyak::util::Cpu::tBMI1) && is_bmi1((x86_insn)insn->id))
+    {
+      assert_true(insn->size >= 5);
+      auto target = &program_buffer[insn->address];
+      if (!hook_bmi1_instruction(target, insn, rip_pointers_, rip_zone_))
+      {
+        assert_always();
+      }
     }
     else
     {
