@@ -186,7 +186,10 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
   address base_address;
   base_address.val = align_size(reserved_address.val, four_gb);
 
-  auto reserved_before_size = static_cast<size_t>(base_address.ptr - reserved_address.ptr);
+  address reserved_address_aligned;
+  reserved_address_aligned.val = align_size(reserved_address.val, page_size);
+
+  auto reserved_before_size = static_cast<size_t>(base_address.ptr - reserved_address_aligned.ptr);
   auto reserved_after_size = static_cast<size_t>(&reserved_address.ptr[eight_gb] - &base_address.ptr[load_size]);
 
   address rip_zone_start, rip_zone_end;
@@ -194,10 +197,10 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
   if (reserved_before_size >= desired_rip_zone_size)
   {
     rip_zone_start.val = reserved_before_size + load_size < INT32_MAX
-      ? align_size(reserved_address.val + load_size, page_size)
-      : align_size(base_address.val + load_size + INT32_MIN, page_size);
+      ? (reserved_address_aligned.val + load_size) & ~(page_size - 1)
+      : (base_address.val + load_size + INT32_MIN) & ~(page_size - 1);
     rip_zone_end.ptr = &rip_zone_start.ptr[desired_rip_zone_size];
-    assert_true(rip_zone_start.ptr >= reserved_address.ptr && rip_zone_end.ptr <= base_address.ptr);
+    assert_true(rip_zone_start.ptr >= reserved_address_aligned.ptr && rip_zone_end.ptr <= base_address.ptr);
   }
   else if (reserved_after_size >= desired_rip_zone_size)
   {
