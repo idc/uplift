@@ -541,7 +541,7 @@ bool hook_bmi1_instruction(uint8_t* target, cs_insn* insn, RIPPointers* rip_poin
   return true;
 }
 
-bool is_bmi1(x86_insn op)
+bool is_bmi1_instruction(x86_insn op)
 {
   return op == X86_INS_ANDN ||
     op == X86_INS_BEXTR ||
@@ -642,7 +642,7 @@ void Linkable::AnalyzeAndPatchCode()
     {
       assert_unhandled_case(X86_INS_INTO);
     }
-    else if (!loader_->cpu_has(Xbyak::util::Cpu::tBMI1) && is_bmi1((x86_insn)insn->id))
+    else if (!loader_->cpu_has(Xbyak::util::Cpu::tBMI1) && is_bmi1_instruction((x86_insn)insn->id))
     {
       assert_true(insn->size >= 5);
       auto target = &program_buffer[insn->address];
