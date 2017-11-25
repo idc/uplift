@@ -5,6 +5,8 @@
 
 #include <xenia/base/exception_handler.h>
 
+#include "../../xbyak/xbyak/xbyak_util.h"
+
 #include "linkable.hpp"
 #include "syscalls.hpp"
 
@@ -15,11 +17,21 @@ namespace uplift
     friend class SYSCALLS;
 
   public:
-    Loader(const std::wstring& base_path);
+    Loader();
     virtual ~Loader();
+
+    bool cpu_has(Xbyak::util::Cpu::Type type)
+    {
+      return cpu_.has(type);
+    };
 
     void* fsbase() const { return fsbase_; }
     void* syscall_handler() const;
+
+    void set_base_path(const std::wstring& base_path)
+    {
+      base_path_ = base_path;
+    }
 
     bool FindModule(uint32_t id, Linkable*& module);
     bool FindModule(const std::wstring& name, Linkable*& module);
@@ -30,7 +42,7 @@ namespace uplift
 
     bool ResolveSymbol(Linkable* skip, uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value);
 
-    bool Loader::HandleSyscall(uint64_t id, uint64_t* result, uint64_t args[6]);
+    bool Loader::HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t args[6]);
     bool HandleException(xe::Exception* ex);
 
   private:
@@ -39,6 +51,7 @@ namespace uplift
     bool LoadNeededObjects();
     bool RelocateObjects();
 
+    Xbyak::util::Cpu cpu_;
     std::wstring base_path_;
     void* fsbase_;
     void* entrypoint_;
@@ -47,6 +60,6 @@ namespace uplift
     std::vector<std::unique_ptr<Linkable>> objects_;
     uint32_t next_module_id_;
     uint32_t next_namedobj_id_;
-    SyscallEntry syscall_table_[1024];
+    SyscallEntry syscall_table_[SyscallTableSize];
   };
 }

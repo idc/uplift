@@ -89,18 +89,22 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\bmi1.hpp" />
+    <ClInclude Include="src\code_generators.hpp" />
     <ClInclude Include="src\dynamic_info.hpp" />
     <ClInclude Include="src\helpers.hpp" />
     <ClInclude Include="src\linkable.hpp" />
     <ClInclude Include="src\loader.hpp" />
     <ClInclude Include="src\match.hpp" />
     <ClInclude Include="src\program_info.hpp" />
+    <ClInclude Include="src\rip_pointers.hpp" />
+    <ClInclude Include="src\rip_zone.hpp" />
     <ClInclude Include="src\stdafx\stdafx.h" />
     <ClInclude Include="src\stdafx\targetver.h" />
     <ClInclude Include="src\syscalls.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\bmi1.cpp" />
+    <ClCompile Include="src\code_generators.cpp" />
     <ClCompile Include="src\dynamic_info.cpp" />
     <ClCompile Include="src\helpers.cpp" />
     <ClCompile Include="src\linkable.cpp" />

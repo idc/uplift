@@ -9,7 +9,9 @@
 
 using namespace uplift;
 
-bool SYSCALLS::write(Loader* loader, uint64_t* retval, int fd, const void* buf, size_t nbytes)
+#define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Loader* loader, SyscallReturnValue& retval, __VA_ARGS__)
+
+SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
 {
   if (fd == 1 || fd == 2)
   {
@@ -18,22 +20,22 @@ bool SYSCALLS::write(Loader* loader, uint64_t* retval, int fd, const void* buf, 
     {
       printf("%c", *b);
     }
-    *retval = nbytes;
+    retval.val = nbytes;
     return true;
   }
   else if (fd == 0x0BEEF002)
   {
     printf("NOTIFICATION: %s\n", &static_cast<const char*>(buf)[0x28]);
-    *retval = nbytes;
+    retval.val = nbytes;
     return true;
   }
 
-  *retval = -1;
+  retval.val = -1;
   assert_always();
   return false;
 }
 
-bool SYSCALLS::open(Loader* loader, uint64_t* retval, const char* cpath, int flags, uint64_t mode)
+SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
 {
   printf("open: %s, %x, %I64d\n", cpath, flags, mode);
 
@@ -41,74 +43,74 @@ bool SYSCALLS::open(Loader* loader, uint64_t* retval, const char* cpath, int fla
 
   if (path == "/dev/dipsw")
   {
-    *retval = 0x0BEEF001u;
+    retval.val = 0x0BEEF001u;
     return true;
   }
   else if (path == "/dev/notification0")
   {
-    *retval = 0x0BEEF002u;
+    retval.val = 0x0BEEF002u;
     return true;
   }
   else if (path == "/dev/notification1")
   {
-    *retval = 0x0BEEF003u;
+    retval.val = 0x0BEEF003u;
     return true;
   }
 
   assert_always();
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-bool SYSCALLS::close(Loader* loader, uint64_t* retval, int fd)
+SYSCALL_IMPL(close, int fd)
 {
   if (fd == 0x0BEEF001)
   {
-    *retval = 0;
+    retval.val = 0;
     return true;
   }
 
   assert_always();
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-bool SYSCALLS::getpid(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(getpid)
 {
-  *retval = 123;
+  retval.val = 123;
   return true;
 }
 
-bool SYSCALLS::ioctl(Loader* loader, uint64_t* retval, int fd, uint32_t request, void* argp)
+SYSCALL_IMPL(ioctl, int fd, uint32_t request, void* argp)
 {
   if (fd == 0x0BEEF001)
   {
     if (request == 0x40048806)
     {
       *static_cast<uint32_t*>(argp) = 1;
-      *retval = 0;
+      retval.val = 0;
       return true;
     }
     else if (request == 0x40048807)
     {
       *static_cast<uint32_t*>(argp) = 0;
-      *retval = 0;
+      retval.val = 0;
       return true;
     }
     else if (request == 0x40088808)
     {
       *static_cast<uint64_t*>(argp) = 0;
-      *retval = 0;
+      retval.val = 0;
       return true;
     }
   }
 
   assert_always();
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-bool SYSCALLS::sysarch(Loader* loader, uint64_t* retval, int number, void* args)
+SYSCALL_IMPL(sysarch, int number, void* args)
 {
   if (number == 129)
   {
@@ -118,12 +120,11 @@ bool SYSCALLS::sysarch(Loader* loader, uint64_t* retval, int number, void* args)
     return true;
   }
   assert_always();
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-bool SYSCALLS::sysctl(
-  Loader* loader, uint64_t* retval, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, const void* newp, size_t newlen)
+SYSCALL_IMPL(sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, const void* newp, size_t newlen)
 {
   if (namelen == 2 && name[0] == 0 && name[1] == 3)
   {
@@ -207,46 +208,46 @@ bool SYSCALLS::sysctl(
   return false;
 }
 
-bool SYSCALLS::sigprocmask(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(sigprocmask)
 {
   return true;
 }
 
-bool SYSCALLS::sigaction(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(sigaction)
 {
   return true;
 }
 
-bool SYSCALLS::thr_self(Loader* loader, uint64_t* retval, void** arg1)
+SYSCALL_IMPL(thr_self, void** arg1)
 {
   *arg1 = (void*)357;
-  *retval = 135;
+  retval.val = 135;
   return true;
 }
 
-bool SYSCALLS::_umtx_op(Loader* loader, uint64_t* retval, void* obj, int op, uint32_t val, void* uaddr1, void* uaddr2)
+SYSCALL_IMPL(_umtx_op, void* obj, int op, uint32_t val, void* uaddr1, void* uaddr2)
 {
   return true;
 }
 
-bool SYSCALLS::thr_set_name(Loader* loader, uint64_t* retval, long id, const char* name)
+SYSCALL_IMPL(thr_set_name, long id, const char* name)
 {
   printf("thr_set_name: %d=%s\n", id, name);
   return true;
 }
 
-bool SYSCALLS::rtprio_thread(Loader* loader, uint64_t* retval, int function, uint64_t lwpid, void* rtp)
+SYSCALL_IMPL(rtprio_thread, int function, uint64_t lwpid, void* rtp)
 {
   return true;
 }
 
-bool SYSCALLS::mmap(Loader* loader, uint64_t* retval, void* addr, size_t len, int prot, int	flags, int fd, off_t offset)
+SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int	flags, int fd, off_t offset)
 {
   auto access = xe::memory::PageAccess::kReadWrite;
   auto allocation_type = xe::memory::AllocationType::kReserveCommit;
   auto allocation = xe::memory::AllocFixed(0 /*addr*/, len, allocation_type, access);
   printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%x, RETVAL=%p\n", addr, len, prot, flags, fd, offset, allocation);
-  *reinterpret_cast<void**>(retval) = allocation ? allocation : (void*)-1;
+  retval.ptr = allocation ? allocation : (void*)-1;
   return allocation != nullptr;
 }
 
@@ -268,7 +269,7 @@ struct nonsys_int
   uint32_t value;
 };
 
-bool SYSCALLS::regmgr_call(Loader* loader, uint64_t* retval, uint32_t op, uint32_t id, void* result, void* value, uint64_t type)
+SYSCALL_IMPL(regmgr_call, uint32_t op, uint32_t id, void* result, void* value, uint64_t type)
 {
   if (op == 25) // non-system get int
   {
@@ -278,43 +279,43 @@ bool SYSCALLS::regmgr_call(Loader* loader, uint64_t* retval, uint32_t op, uint32
         int_value->encoded_id == 0x338660835BDE7CB1ull)
     {
       int_value->value = 0;
-      *retval = true;
+      retval.val = true;
       return true;
     }
 
-    *retval = 0x800D0203;
+    retval.val = 0x800D0203;
     return false;
   }
 
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-bool SYSCALLS::namedobj_create(Loader* loader, uint64_t* retval, const char* name, void* arg2, uint32_t arg3)
+SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
 {
   printf("namedobj_create: %s %p %x\n", name, arg2, arg3);
-  *retval = ++loader->next_namedobj_id_;
+  retval.val = ++loader->next_namedobj_id_;
   return true;
 }
 
-bool SYSCALLS::get_authinfo(Loader* loader, uint64_t* retval, void* arg1, void* arg2)
+SYSCALL_IMPL(get_authinfo, void* arg1, void* arg2)
 {
   std::memset(arg2, 0, 136);
   return true;
 }
 
-bool SYSCALLS::mname(Loader* loader, uint64_t* retval, uint8_t* arg1, size_t arg2, const char* name, void* arg4)
+SYSCALL_IMPL(mname, uint8_t* arg1, size_t arg2, const char* name, void* arg4)
 {
   printf("mname: %p-%p=%s\n", arg1, &arg1[arg2] - 1, name);
   return true;
 }
 
-bool SYSCALLS::dynlib_dlsym(Loader* loader, uint64_t* retval, uint32_t id, const char* cname, void** sym)
+SYSCALL_IMPL(dynlib_dlsym, uint32_t id, const char* cname, void** sym)
 {
   Linkable* module;
   if (!loader->FindModule(id, module))
   {
-    *retval = -1;
+    retval.val = -1;
     return false;
   }
 
@@ -341,7 +342,7 @@ bool SYSCALLS::dynlib_dlsym(Loader* loader, uint64_t* retval, uint32_t id, const
   }
   else
   {
-    *retval = -1;
+    retval.val = -1;
     return false;
   }
 
@@ -355,13 +356,13 @@ bool SYSCALLS::dynlib_dlsym(Loader* loader, uint64_t* retval, uint32_t id, const
   return false;
 }
 
-bool SYSCALLS::dynlib_get_list(Loader* loader, uint64_t* retval, void* arg1, void* arg2, size_t** arg3)
+SYSCALL_IMPL(dynlib_get_list, void* arg1, void* arg2, size_t** arg3)
 {
   *arg3 = nullptr;
   return true;
 }
 
-bool SYSCALLS::dynlib_load_prx(Loader* loader, uint64_t* retval, const char* cpath, void* arg2, uint32_t* arg3, void* arg4)
+SYSCALL_IMPL(dynlib_load_prx, const char* cpath, void* arg2, uint32_t* arg3, void* arg4)
 {
   printf("LOAD PRX: %s, %p, %p, %p\n", cpath, arg2, arg3, arg4);
 
@@ -378,7 +379,7 @@ bool SYSCALLS::dynlib_load_prx(Loader* loader, uint64_t* retval, const char* cpa
   {
     module->Relocate();
     *arg3 = module->id();
-    *retval = 0;
+    retval.val = 0;
     return true;
   }
 
@@ -388,22 +389,22 @@ bool SYSCALLS::dynlib_load_prx(Loader* loader, uint64_t* retval, const char* cpa
     {
       module->Relocate();
       *arg3 = module->id();
-      *retval = 0;
+      retval.val = 0;
       return true;
     }
   }
 
   printf("LOAD PRX FAILED!\n");
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-bool SYSCALLS::dynlib_do_copy_relocations(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(dynlib_do_copy_relocations)
 {
   return true;
 }
 
-bool SYSCALLS::dynlib_get_proc_param(Loader* loader, uint64_t* retval, void** data_address, size_t* data_size)
+SYSCALL_IMPL(dynlib_get_proc_param, void** data_address, size_t* data_size)
 {
   auto eboot = loader->objects_.begin()->get();
   auto base_address = eboot->base_address();
@@ -412,23 +413,23 @@ bool SYSCALLS::dynlib_get_proc_param(Loader* loader, uint64_t* retval, void** da
   return true;
 }
 
-bool SYSCALLS::dynlib_process_needed_and_relocate(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(dynlib_process_needed_and_relocate)
 {
   bool success = loader->LoadNeededObjects() && loader->RelocateObjects();
-  *retval = success ? 0 : -1;
+  retval.val = success ? 0 : -1;
   return success;
 }
 
-bool SYSCALLS::mdbg_service(Loader* loader, uint64_t* retval, void* arg1, void* arg2, void* arg3)
+SYSCALL_IMPL(mdbg_service, void* arg1, void* arg2, void* arg3)
 {
   return true;
 }
 
-bool SYSCALLS::randomized_path(Loader* loader, uint64_t* retval, const char* set_path, char* path, size_t* path_length)
+SYSCALL_IMPL(randomized_path, const char* set_path, char* path, size_t* path_length)
 {
   if (set_path != nullptr)
   {
-    *retval = -1;
+    retval.val = -1;
     return false;
   }
 
@@ -436,7 +437,7 @@ bool SYSCALLS::randomized_path(Loader* loader, uint64_t* retval, const char* set
   return true;
 }
 
-bool SYSCALLS::workaround8849(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(workaround8849)
 {
   return true;
 }
@@ -472,11 +473,11 @@ struct dynlib_info_ex
   uint32_t unknown_1A4;
 };
 
-bool SYSCALLS::dynlib_get_info_ex(Loader* loader, uint64_t* retval, uint32_t id, void* arg2, void* vinfo)
+SYSCALL_IMPL(dynlib_get_info_ex, uint32_t id, void* arg2, void* vinfo)
 {
   if (static_cast<dynlib_info_ex*>(vinfo)->struct_size != sizeof(dynlib_info_ex))
   {
-    *retval = -1;
+    retval.val = -1;
     return false;
   }
 
@@ -486,7 +487,7 @@ bool SYSCALLS::dynlib_get_info_ex(Loader* loader, uint64_t* retval, uint32_t id,
   Linkable* module;
   if (!loader->FindModule(id, module))
   {
-    *retval = -1;
+    retval.val = -1;
     return false;
   }
 
@@ -517,14 +518,14 @@ bool SYSCALLS::dynlib_get_info_ex(Loader* loader, uint64_t* retval, uint32_t id,
 }
 
 // arg1 removed after 1.76 sometime?
-bool SYSCALLS::eport_create(Loader* loader, uint64_t* retval, /*const char* arg1,*/ uint32_t arg2)
+SYSCALL_IMPL(eport_create, /*const char* arg1,*/ uint32_t arg2)
 {
   printf("eport_create: %x\n", arg2);
-  *retval = 78;
+  retval.val = 78;
   return false;
 }
 
-bool SYSCALLS::get_proc_type_info(Loader* loader, uint64_t* retval, void* vtype_info)
+SYSCALL_IMPL(get_proc_type_info, void* vtype_info)
 {
   struct
   {
@@ -534,18 +535,18 @@ bool SYSCALLS::get_proc_type_info(Loader* loader, uint64_t* retval, void* vtype_
   }
   type_info = { sizeof(type_info), 0, 0 };
   std::memcpy(vtype_info, &type_info, sizeof(type_info));
-  *retval = 0;
+  retval.val = 0;
   return true;
 }
 
-bool SYSCALLS::ipmimgr_call(Loader* loader, uint64_t* retval)
+SYSCALL_IMPL(ipmimgr_call)
 {
   assert_always();
-  *retval = -1;
+  retval.val = -1;
   return false;
 }
 
-void uplift::get_syscall_table(SyscallEntry table[1024])
+void uplift::get_syscall_table(SyscallEntry table[SyscallTableSize])
 {
 #define SYSCALL(x,y,...) { table[x].handler = SYSCALLS::y; table[x].name = #y; }
 #include "syscall_table.inl"

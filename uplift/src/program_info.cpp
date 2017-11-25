@@ -5,6 +5,7 @@
 #include <xenia/base/assert.h>
 
 #include "program_info.hpp"
+#include "helpers.hpp"
 
 using namespace uplift;
 namespace elf = llvm::ELF;
@@ -41,7 +42,7 @@ bool uplift::get_program_info(elf::Elf64_Phdr* phdr, elf::Elf64_Half count, Prog
           info.load_start = phdr->p_vaddr;
         }
 
-        auto aligned_end = (phdr->p_vaddr + phdr->p_memsz + 0x3FFFull) & ~0x3FFFull;
+        auto aligned_end = align_size(phdr->p_vaddr + phdr->p_memsz, 0x4000);
         if (aligned_end >= info.load_end)
         {
           info.load_end = aligned_end;

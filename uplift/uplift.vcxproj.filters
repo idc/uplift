@@ -20,6 +20,9 @@
     <ClInclude Include="src\program_info.hpp" />
     <ClInclude Include="src\syscalls.hpp" />
     <ClInclude Include="src\bmi1.hpp" />
+    <ClInclude Include="src\code_generators.hpp" />
+    <ClInclude Include="src\rip_zone.hpp" />
+    <ClInclude Include="src\rip_pointers.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -34,6 +37,7 @@
     <ClCompile Include="src\program_info.cpp" />
     <ClCompile Include="src\syscalls.cpp" />
     <ClCompile Include="src\bmi1.cpp" />
+    <ClCompile Include="src\code_generators.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\syscall_table.inl" />

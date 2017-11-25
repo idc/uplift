@@ -21,8 +21,9 @@
 
 using namespace uplift;
 
-Loader::Loader(const std::wstring& base_path)
-  : base_path_(base_path)
+Loader::Loader()
+  : cpu_()
+  , base_path_()
   , fsbase_(0)
   , entrypoint_(nullptr)
   , user_stack_base_(nullptr)
@@ -280,7 +281,7 @@ bool Loader::HandleException(xe::Exception* ex)
 bool syscall_dispatch_trampoline(
   Loader* loader, uint64_t id,
   uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6,
-  uint64_t* result)
+  SyscallReturnValue& result)
 {
   uint64_t args[6];
   args[0] = arg1;
@@ -297,12 +298,12 @@ void* Loader::syscall_handler() const
   return syscall_dispatch_trampoline;
 }
 
-bool Loader::HandleSyscall(uint64_t id, uint64_t* result, uint64_t args[6])
+bool Loader::HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t args[6])
 {
   if (id >= _countof(syscall_table_) || syscall_table_[id].handler == nullptr)
   {
     printf("UNKNOWN SYSCALL: %I64u\n", id);
-    *result = -1;
+    result.val = -1;
     assert_always();
     return false;
   }

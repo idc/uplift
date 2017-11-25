@@ -7,21 +7,15 @@
 
 #include <llvm/BinaryFormat/ELF.h>
 
+#include "rip_zone.hpp"
+#include "rip_pointers.hpp"
+
 #include "program_info.hpp"
 #include "dynamic_info.hpp"
 
 namespace uplift
 {
   class Loader;
-
-#pragma pack(push, 16)
-  struct RIPPointers
-  {
-    void* fsbase;
-    void* loader;
-    void* syscall_handler;
-  };
-#pragma pack(pop)
 
   class Linkable
   {
@@ -77,11 +71,8 @@ namespace uplift
     size_t reserved_prefix_size_;
     size_t reserved_suffix_size_;
     uint8_t* base_address_;
-    uint8_t* rip_zone_start_;
-    size_t rip_zone_size_;
-    uint8_t* rip_zone_end_;
     RIPPointers* rip_pointers_;
-    uint8_t* next_hook_address_;
+    RIPZone rip_zone_;
     uint64_t sce_proc_param_address_;
     uint64_t sce_proc_param_size_;
     uint64_t entrypoint_;

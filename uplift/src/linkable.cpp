@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <xenia/base/assert.h>
+#include <xenia/base/debugging.h>
 #include <xenia/base/mapped_memory.h>
 #include <xenia/base/memory.h>
 #include <xenia/base/string.h>
@@ -23,6 +24,7 @@
 #include "dynamic_info.hpp"
 #include "helpers.hpp"
 #include "match.hpp"
+#include "code_generators.hpp"
 
 using namespace uplift;
 namespace elf = llvm::ELF;
@@ -134,55 +136,82 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
 
   auto load_size = info.load_end - info.load_start;
 
-  auto one_mb = 1ull * 1024ull * 1024ull;
-  auto four_gb = 4ull * 1024ull * one_mb;
-  auto eight_gb = 8ull * 1024ull * one_mb;
+  union address
+  {
+    uint8_t* ptr;
+    uint64_t val;
+  };
 
-  auto reserved_address = static_cast<uint8_t*>(xe::memory::AllocFixed(
+  const size_t one_mb = 1ull * 1024ull * 1024ull;
+  const size_t eight_mb = 8ull * one_mb;
+  const size_t four_gb = 4ull * 1024ull * one_mb;
+  const size_t eight_gb = 8ull * 1024ull * one_mb;
+
+  /* 8GiB is reserved so that the loaded module has a guaranteed
+   * 4GB address space all to itself, and then some.
+   *
+   * xxxxxxxx00000000 - xxxxxxxxFFFFFFFF
+   *
+   * Once the range is mapped, a safe area before or after the
+   * size of the loaded module is chosen to store any extra
+   * code or data that is easily RIP addressable.
+   */
+
+  address reserved_address;
+  reserved_address.ptr = static_cast<uint8_t*>(xe::memory::AllocFixed(
     nullptr,
     eight_gb,
     xe::memory::AllocationType::kReserve,
     xe::memory::PageAccess::kNoAccess));
-  if (reserved_address == nullptr)
+  if (reserved_address.ptr == nullptr)
   {
     goto error;
   }
 
-  auto base_address = reinterpret_cast<uint8_t*>((reinterpret_cast<uint64_t>(reserved_address) + (four_gb - 1)) & ~(four_gb - 1));
-  auto reserved_prefix_size = static_cast<size_t>(base_address - reserved_address);
-  auto reserved_suffix_size = static_cast<size_t>(&reserved_address[eight_gb] - &base_address[load_size]);
+  const size_t page_size = 0x4000;
 
-  uint8_t* rip_zone_start;
-  uint8_t* rip_zone_end;
-
-  if (reserved_prefix_size >= 5 * one_mb)
+  struct rip_zone_definition
   {
-    if (reserved_prefix_size + load_size < INT32_MAX)
-    {
-      rip_zone_start = reinterpret_cast<uint8_t*>((reinterpret_cast<uint64_t>(reserved_address) + load_size + 0x3FFFull) & ~0x3FFFull);
-      rip_zone_end = &rip_zone_start[4 * one_mb];
-    }
-    else
-    {
-      rip_zone_start = reinterpret_cast<uint8_t*>((reinterpret_cast<uint64_t>(&base_address[load_size + INT32_MIN]) + 0x3FFFull) & ~0x3FFFull);
-      rip_zone_end = &rip_zone_start[4 * one_mb];
-    }
+    RIPPointers rip_pointers;
+    uint8_t padding1[align_size_const(sizeof(RIPPointers), page_size) - sizeof(RIPPointers)];
+    uint8_t safe1[page_size];
+    uint8_t free_zone[eight_mb];
+    //uint8_t padding2[align_size_const(eight_mb, page_size) - eight_mb];
+    uint8_t safe2[page_size];
+  };
 
-    assert_true(rip_zone_start >= reserved_address && rip_zone_end <= base_address);
+  const size_t desired_rip_zone_size = sizeof(rip_zone_definition);
+
+  address base_address;
+  base_address.val = align_size(reserved_address.val, four_gb);
+
+  auto reserved_before_size = static_cast<size_t>(base_address.ptr - reserved_address.ptr);
+  auto reserved_after_size = static_cast<size_t>(&reserved_address.ptr[eight_gb] - &base_address.ptr[load_size]);
+
+  address rip_zone_start, rip_zone_end;
+
+  if (reserved_before_size >= desired_rip_zone_size)
+  {
+    rip_zone_start.val = reserved_before_size + load_size < INT32_MAX
+      ? align_size(reserved_address.val + load_size, page_size)
+      : align_size(base_address.val + load_size + INT32_MIN, page_size);
+    rip_zone_end.ptr = &rip_zone_start.ptr[desired_rip_zone_size];
+    assert_true(rip_zone_start.ptr >= reserved_address.ptr && rip_zone_end.ptr <= base_address.ptr);
   }
-  else if (reserved_suffix_size >= 5 * one_mb)
+  else if (reserved_after_size >= desired_rip_zone_size)
   {
-    rip_zone_start = reinterpret_cast<uint8_t*>((reinterpret_cast<uint64_t>(base_address) + load_size + 0x3FFFull) & ~0x3FFFull);
-    rip_zone_end = &rip_zone_start[4 * one_mb];
-
-    assert_true(rip_zone_start >= &base_address[load_size] && rip_zone_end <= &reserved_address[eight_gb]);
+    rip_zone_start.val = align_size(base_address.val + load_size, page_size);
+    rip_zone_end.ptr = &rip_zone_start.ptr[desired_rip_zone_size];
+    assert_true(rip_zone_start.ptr >= &base_address.ptr[load_size] && rip_zone_end.ptr <= &reserved_address.ptr[eight_gb]);
   }
   else
   {
     assert_always();
   }
 
-  auto rip_pointers = reinterpret_cast<RIPPointers*>(&rip_zone_start[0]);
+  auto rip_zone_data = reinterpret_cast<rip_zone_definition*>(rip_zone_start.ptr);
+
+  auto rip_pointers = &rip_zone_data->rip_pointers;
   if (xe::memory::AllocFixed(
     rip_pointers,
     sizeof(RIPPointers),
@@ -195,12 +224,12 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
   rip_pointers->loader = loader;
   rip_pointers->syscall_handler = loader->syscall_handler();
 
-  auto next_hook_address = &rip_zone_start[(sizeof(RIPPointers) + 0x3FFFull) & ~0x3FFFull];
+  auto free_zone = &rip_zone_data->free_zone[0];
   if (xe::memory::AllocFixed(
-    next_hook_address,
-    4 * one_mb,
+    free_zone,
+    sizeof(rip_zone_definition::free_zone),
     xe::memory::AllocationType::kCommit,
-    xe::memory::PageAccess::kExecuteReadWrite) != next_hook_address)
+    xe::memory::PageAccess::kExecuteReadWrite) != free_zone)
   {
     goto error;
   }
@@ -213,7 +242,7 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
       continue;
     }
 
-    auto program_address = &base_address[phdr->p_vaddr];
+    auto program_address = &base_address.ptr[phdr->p_vaddr];
     auto program_allocated_address = xe::memory::AllocFixed(
       program_address,
       phdr->p_memsz,
@@ -240,15 +269,17 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
     linkable->dynamic_size_ = info.dynamic_file_size;
     linkable->sce_dynlibdata_buffer_ = sce_dynlibdata_buffer;
     linkable->sce_dynlibdata_size_ = info.sce_dynlibdata_file_size;
-    linkable->reserved_address_ = reserved_address;
-    linkable->reserved_prefix_size_ = reserved_prefix_size;
-    linkable->reserved_suffix_size_ = reserved_suffix_size;
-    linkable->base_address_ = base_address;
-    linkable->rip_zone_start_ = rip_zone_start;
-    linkable->rip_zone_size_ = one_mb;
-    linkable->rip_zone_end_ = rip_zone_end;
+    linkable->reserved_address_ = reserved_address.ptr;
+    linkable->reserved_prefix_size_ = reserved_before_size;
+    linkable->reserved_suffix_size_ = reserved_after_size;
+    linkable->base_address_ = base_address.ptr;
     linkable->rip_pointers_ = rip_pointers;
-    linkable->next_hook_address_ = next_hook_address;
+    linkable->rip_zone_ =
+    {
+      &free_zone[0],
+      &free_zone[0],
+      &free_zone[sizeof(rip_zone_definition::free_zone)],
+    };
     linkable->sce_proc_param_address_ = info.sce_proc_param_address;
     linkable->sce_proc_param_size_ = info.sce_proc_param_file_size;
     linkable->entrypoint_ = ehdr->e_entry;
@@ -265,20 +296,24 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
     linkable->ProcessDynamic();
     linkable->AnalyzeAndPatchCode();
     linkable->Protect();
-    char buffa[256];
-    sprintf(buffa, "MODULE = %S @ %p\n", linkable->name().c_str(), base_address);
-    OutputDebugStringA(buffa);
+
+    xe::debugging::DebugPrint("MODULE = %S @ %p\n", linkable->name().c_str(), base_address.ptr);
+
     return std::move(linkable);
   }
 
 error:
+  if (free_zone)
+  {
+    xe::memory::DeallocFixed(free_zone, 0, xe::memory::DeallocationType::kRelease);
+  }
   if (rip_pointers)
   {
     xe::memory::DeallocFixed(rip_pointers, 0, xe::memory::DeallocationType::kRelease);
   }
-  if (reserved_address)
+  if (reserved_address.ptr)
   {
-    xe::memory::DeallocFixed(reserved_address, 0, xe::memory::DeallocationType::kRelease);
+    xe::memory::DeallocFixed(reserved_address.ptr, 0, xe::memory::DeallocationType::kRelease);
   }
   if (sce_dynlibdata_buffer)
   {
@@ -306,11 +341,8 @@ Linkable::Linkable(Loader* loader, const std::wstring& path)
   , reserved_prefix_size_(0)
   , reserved_suffix_size_(0)
   , base_address_(nullptr)
-  , rip_zone_start_(nullptr)
-  , rip_zone_size_(0)
-  , rip_zone_end_(nullptr)
   , rip_pointers_(nullptr)
-  , next_hook_address_(nullptr)
+  , rip_zone_()
   , sce_proc_param_address_(0)
   , sce_proc_param_size_(0)
   , entrypoint_(0)
@@ -356,76 +388,7 @@ void Linkable::ProcessDynamic()
   }
 }
 
-Xbyak::Operand::Code capstone_to_xbyak(x86_reg reg)
-{
-#define CASE_R(x) \
-  case X86_REG_E ## x: \
-  case X86_REG_R ## x: \
-  { \
-    return Xbyak::Operand::R ## x; \
-  }
-#define CASE_N(x) \
-  case X86_REG_R ## x ## D: \
-  case X86_REG_R ## x: \
-  { \
-    return Xbyak::Operand::R ## x; \
-  }
-  switch (reg)
-  {
-    CASE_R(AX)
-    CASE_R(CX)
-    CASE_R(DX)
-    CASE_R(BX)
-    CASE_R(SP)
-    CASE_R(BP)
-    CASE_R(SI)
-    CASE_R(DI)
-    CASE_N(8)
-    CASE_N(9)
-    CASE_N(10)
-    CASE_N(11)
-    CASE_N(12)
-    CASE_N(13)
-    CASE_N(14)
-    CASE_N(15)
-  }
-  assert_always();
-  return Xbyak::Operand::Code::RAX;
-#undef CASE_N
-#undef CASE_R
-}
-
-class FSBaseMovGenerator : public Xbyak::CodeGenerator
-{
-public:
-  FSBaseMovGenerator(void* code, size_t code_size, x86_reg reg, uint8_t reg_size, int64_t disp, void* fsbase, void* target)
-    : Xbyak::CodeGenerator(code_size, code)
-  {
-    assert_true(reg_size == 8 || reg_size == 4);
-    auto xbyak_reg = Xbyak::Reg64(capstone_to_xbyak(reg));
-
-    mov(xbyak_reg, ptr[rip + fsbase]);
-    if (disp != 0)
-    {
-      assert_true(disp >= INT32_MIN && disp <= INT32_MAX);
-      add(xbyak_reg, static_cast<Xbyak::uint32>(disp));
-    }
-
-    if (reg_size == 4)
-    {
-      mov(xbyak_reg.cvt32(), ptr[xbyak_reg]);
-    }
-    else
-    {
-      mov(xbyak_reg, ptr[xbyak_reg]);
-    }
-
-    jmp(ptr[rip]);
-    dq(reinterpret_cast<Xbyak::uint64>(target));
-  }
-};
-
-bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointers, uint8_t*& next_hook_address)
+bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointers, RIPZone& rip_zone)
 {
   if (insn->id == X86_INS_MOV)
   {
@@ -452,20 +415,35 @@ bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointe
       return false;
     }
 
-    FSBaseMovGenerator generator(
-      next_hook_address, 128, operands[0].reg, operands[0].size, operands[1].mem.disp, &rip_pointers->fsbase, &target[insn->size]);
-    auto trampoline = generator.getCode();
+    using Generator = code_generators::FSBaseMovGenerator;
+
+    Generator generator(operands[0].reg, operands[0].size, operands[1].mem.disp);
+
+    auto trampoline_code = generator.getCode();
     auto trampoline_size = generator.getSize();
-    auto aligned_size = (trampoline_size + 31) & ~31;
+    auto aligned_size = align_size(trampoline_size, 32);
+
+    uint8_t* rip_code;
+    if (!rip_zone.take(aligned_size, rip_code))
+    {
+      assert_always();
+      return false;
+    }
+
+    std::memcpy(rip_code, trampoline_code, trampoline_size);
+
+    auto tail = reinterpret_cast<Generator::Tail*>(&rip_code[trampoline_size - sizeof(Generator::Tail)]);
+    tail->target = target;
+    tail->rip_pointers = rip_pointers;
+
     if (trampoline_size < aligned_size)
     {
-      memset(&next_hook_address[trampoline_size], 0xCC, aligned_size - trampoline_size);
+      memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
     }
-    next_hook_address += aligned_size;
-    
+
     assert_true(insn->size >= 5);
 
-    auto disp = static_cast<uint32_t>(trampoline - &target[5]);
+    auto disp = static_cast<uint32_t>(rip_code - &target[5]);
     target[0] = 0xE9;
     *reinterpret_cast<uint32_t*>(&target[1]) = disp;
 
@@ -483,184 +461,68 @@ bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointe
   }
 }
 
-class SyscallTrampolineGenerator : public Xbyak::CodeGenerator
-{
-public:
-  SyscallTrampolineGenerator(void* code, size_t code_size, void* target, RIPPointers* rip_pointers)
-    : Xbyak::CodeGenerator(code_size, code)
-  {
-    // loader -> RCX
-    // syscall id -> RDX
-    // RDI, RSI, RDX, R10(RCX), R8, R9 -> R8, R9, stack(0), stack(1), stack(3), stack(4)
-
-    // nonvolatile: RBP, RSP, RBX, R12, R13, R14, R15
-    // volatile: RCX, R11
-
-    push(rbp);
-    mov(rbp, rsp);
-    
-    // fix stack alignment, no guarantee it is 16-byte aligned when jumping from random code
-    and_(rsp, ~15u);
-    push(rbp);
-    
-    push(r12); push(r13); push(r14); push(r15);
-    push(rbx);
-
-    sub(rsp, 8); // result storage
-    mov(qword[rsp], 0);
-    push(rsp); // push address of result
-
-    Xbyak::Label label1, label2;
-
-    cmp(rax, 0);
-    jz(label1);
-
-    push(r9);
-    push(r8);
-    push(rcx);
-    push(rdx);
-    mov(r9, rsi);
-    mov(r8, rdi);
-    mov(rdx, rax);
-    jmp(label2);
-
-    L(label1);
-    push(0);
-    push(r9);
-    push(r8);
-    push(rcx);
-    mov(r9, rdx);
-    mov(r8, rsi);
-    mov(rdx, rdi);
-
-    L(label2);
-
-    mov(rcx, ptr[rip + &rip_pointers->loader]);
-
-    push(r9); // SHADOW SPACE
-    push(r8); // SHADOW SPACE
-    push(rdx); // SHADOW SPACE
-    push(rcx); // SHADOW SPACE
-
-    call(ptr[rip + &rip_pointers->syscall_handler]);
-
-    add(rsp, (4 + 2 + 4) * sizeof(void*));
-
-    sub(al, 1); // set CF on error
-    mov(rax, ptr[rsp - 8]);
-
-    pop(rbx);
-    pop(r15); pop(r14); pop(r13); pop(r12);
-    pop(rsp);
-    pop(rbp);
-
-    jmp(ptr[rip]);
-    dq(reinterpret_cast<Xbyak::uint64>(target));
-  }
-};
-
-class NakedSyscallTrampolineGenerator : public Xbyak::CodeGenerator
-{
-public:
-  NakedSyscallTrampolineGenerator(void* code, size_t code_size, uint64_t syscall_id, void* target, RIPPointers* rip_pointers)
-    : Xbyak::CodeGenerator(code_size, code)
-  {
-    // loader -> RCX
-    // syscall id -> RDX
-    // RDI, RSI, RDX, R10, R8, R9 -> R8, R9, stack(0), stack(1), stack(3), stack(4)
-
-    // nonvolatile: RBP, RSP, RBX, R12, R13, R14, R15
-    // volatile: RCX, R11
-
-    push(rbp);
-    mov(rbp, rsp);
-
-    // fix stack alignment, no guarantee it is 16-byte aligned when jumping from random code
-    and_(rsp, ~15u);
-    push(rbp);
-
-    push(r12); push(r13); push(r14); push(r15);
-    push(rbx);
-
-    sub(rsp, 8); // result storage
-    mov(qword[rsp], 0);
-    push(rsp); // push address of result
-
-    if (syscall_id != 0)
-    {
-      push(r9);
-      push(r8);
-      push(r10);
-      push(rdx);
-      mov(r9, rsi);
-      mov(r8, rdi);
-      mov(rdx, syscall_id);
-    }
-    else
-    {
-      push(0);
-      push(r9);
-      push(r8);
-      push(r10);
-      mov(r9, rdx);
-      mov(r8, rsi);
-      mov(rdx, rdi);
-    }
-
-    mov(rcx, ptr[rip + &rip_pointers->loader]);
-
-    push(r9); // SHADOW SPACE
-    push(r8); // SHADOW SPACE
-    push(rdx); // SHADOW SPACE
-    push(rcx); // SHADOW SPACE
-
-    call(ptr[rip + &rip_pointers->syscall_handler]);
-
-    add(rsp, (4 + 2 + 4) * sizeof(void*));
-
-    sub(al, 1); // set CF on error
-    mov(rax, ptr[rsp - 8]);
-
-    pop(rbx);
-    pop(r15); pop(r14); pop(r13); pop(r12);
-    pop(rsp);
-    pop(rbp);
-
-    jmp(ptr[rip]);
-    dq(reinterpret_cast<Xbyak::uint64>(target));
-  }
-};
-
-bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers* rip_pointers, uint8_t*& next_hook_address)
+bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers* rip_pointers, RIPZone& rip_zone)
 {
   if (id == UINT64_MAX)
   {
-    SyscallTrampolineGenerator generator(next_hook_address, 256, &target[5], rip_pointers);
-    auto trampoline = generator.getCode();
+    using Generator = code_generators::SyscallTrampolineGenerator;
+    Generator generator;
+
+    auto trampoline_code = generator.getCode();
     auto trampoline_size = generator.getSize();
-    auto aligned_size = (trampoline_size + 31) & ~31;
+    auto aligned_size = align_size(trampoline_size, 32);
+
+    uint8_t* rip_code;
+    if (!rip_zone.take(aligned_size, rip_code))
+    {
+      assert_always();
+      return false;
+    }
+
+    std::memcpy(rip_code, trampoline_code, trampoline_size);
+
+    auto tail = reinterpret_cast<Generator::Tail*>(&rip_code[trampoline_size - sizeof(Generator::Tail)]);
+    tail->target = target;
+    tail->rip_pointers = rip_pointers;
+
     if (trampoline_size < aligned_size)
     {
-      memset(&next_hook_address[trampoline_size], 0xCC, aligned_size - trampoline_size);
+      memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
     }
-    next_hook_address += aligned_size;
-    auto disp = static_cast<uint32_t>(trampoline - &target[5]);
+
+    auto disp = static_cast<uint32_t>(rip_code - &target[5]);
     target[0] = 0xE9;
     *reinterpret_cast<uint32_t*>(&target[1]) = disp;
     return true;
   }
   else
   {
-    NakedSyscallTrampolineGenerator generator(next_hook_address, 256, id, &target[9], rip_pointers);
-    auto trampoline = generator.getCode();
+    using Generator = code_generators::NakedSyscallTrampolineGenerator;
+    Generator generator(id);
+
+    auto trampoline_code = generator.getCode();
     auto trampoline_size = generator.getSize();
-    auto aligned_size = (trampoline_size + 31) & ~31;
+    auto aligned_size = align_size(trampoline_size, 32);
+
+    uint8_t* rip_code;
+    if (!rip_zone.take(aligned_size, rip_code))
+    {
+      assert_always();
+      return false;
+    }
+
+    std::memcpy(rip_code, trampoline_code, trampoline_size);
+
+    auto tail = reinterpret_cast<Generator::Tail*>(&rip_code[trampoline_size - sizeof(Generator::Tail)]);
+    tail->target = target;
+    tail->rip_pointers = rip_pointers;
+
     if (trampoline_size < aligned_size)
     {
-      memset(&next_hook_address[trampoline_size], 0xCC, aligned_size - trampoline_size);
+      memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
     }
-    next_hook_address += aligned_size;
-    auto disp = static_cast<uint32_t>(trampoline - &target[5]);
+
+    auto disp = static_cast<uint32_t>(rip_code - &target[5]);
     target[0] = 0xE9;
     *reinterpret_cast<uint32_t*>(&target[1]) = disp;
     target[5] = 0xCC;
@@ -731,14 +593,16 @@ void Linkable::AnalyzeAndPatchCode()
 #define IS_SYSCALL_MATCH(x) \
   (match_buffer(&target[-(_countof(x) - 2)], _countof(x), x, _countof(x), &match) && &target[-(_countof(x) - 2)] == match)
       void* match;
+#pragma warning(suppress: 4146)
       if (IS_SYSCALL_MATCH(syscall_pattern))
       {
-        hook_syscall(UINT64_MAX, &target[-3], _countof(syscall_pattern), rip_pointers_, next_hook_address_);
+        hook_syscall(UINT64_MAX, &target[-3], _countof(syscall_pattern), rip_pointers_, rip_zone_);
       }
+#pragma warning(suppress: 4146)
       else if (IS_SYSCALL_MATCH(naked_syscall_pattern))
       {
         auto syscall_id = *reinterpret_cast<uint32_t*>(&target[-4]);
-        hook_syscall(syscall_id, &target[-7], _countof(syscall_pattern), rip_pointers_, next_hook_address_);
+        hook_syscall(syscall_id, &target[-7], _countof(syscall_pattern), rip_pointers_, rip_zone_);
       }
       else
       {
@@ -779,7 +643,7 @@ void Linkable::AnalyzeAndPatchCode()
       if (is_fs)
       {
         auto target = &program_buffer[insn->address];
-        patch_fsbase_access(target, insn, rip_pointers_, next_hook_address_);
+        patch_fsbase_access(target, insn, rip_pointers_, rip_zone_);
       }
     }
   }

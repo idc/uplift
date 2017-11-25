@@ -2,23 +2,32 @@
 
 namespace uplift
 {
+  union SyscallReturnValue
+  {
+    void* ptr;
+    uint64_t val;
+  };
+
+  typedef bool(*SYSCALL_HANDLER)(Loader* loader, SyscallReturnValue& retval, ...);
+
   class SYSCALLS
   {
   private:
     SYSCALLS() {}
   public:
-#define SYSCALL(x, y, ...) static bool y(Loader* loader, uint64_t*, __VA_ARGS__)
+#define SYSCALL(x, y, ...) static bool y(Loader* loader, SyscallReturnValue&, __VA_ARGS__)
 #include "syscall_table.inl"
 #undef SYSCALL
   };
 
   class Loader;
-  typedef bool(*SYSCALL_HANDLER)(Loader* loader, uint64_t* retval, ...);
 
   struct SyscallEntry
   {
     void* handler;
     const char* name;
   };
-  void get_syscall_table(SyscallEntry table[1024]);
+
+  const size_t SyscallTableSize = 1024;
+  void get_syscall_table(SyscallEntry table[SyscallTableSize]);
 }
