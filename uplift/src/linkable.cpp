@@ -144,6 +144,7 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
 
   const size_t one_mb = 1ull * 1024ull * 1024ull;
   const size_t eight_mb = 8ull * one_mb;
+  const size_t thirtytwo_mb = 32ull * one_mb;
   const size_t four_gb = 4ull * 1024ull * one_mb;
   const size_t eight_gb = 8ull * 1024ull * one_mb;
 
@@ -175,7 +176,7 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
     RIPPointers rip_pointers;
     uint8_t padding1[align_size_const(sizeof(RIPPointers), page_size) - sizeof(RIPPointers)];
     uint8_t safe1[page_size];
-    uint8_t free_zone[eight_mb];
+    uint8_t free_zone[thirtytwo_mb];
     //uint8_t padding2[align_size_const(eight_mb, page_size) - eight_mb];
     uint8_t safe2[page_size];
   };
