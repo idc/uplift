@@ -122,7 +122,7 @@ SYSCALL_IMPL(close, int fd)
   {
     object->Close();
     object->ReleaseHandle();
-    return 0;
+    return true;
   }
 
   assert_always();

@@ -79,7 +79,7 @@ namespace uplift
     bool has_init_offset;
     llvm::ELF::Elf64_Xword fini_offset;
     bool has_fini_offset;
-    uint8_t	fingerprint[20];
+    uint8_t fingerprint[20];
     std::string output_image_name;
 
     bool find_module(uint16_t id, ModuleInfo& info);
