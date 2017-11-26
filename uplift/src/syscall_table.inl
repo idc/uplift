@@ -27,7 +27,7 @@ SYSCALL(558, namedobj_delete);
 SYSCALL(587, get_authinfo, void* arg1, void* arg2);
 SYSCALL(588, mname, uint8_t* arg1, size_t arg2, const char* name, void* arg4);
 SYSCALL(591, dynlib_dlsym, uint32_t id, const char* name, void** sym);
-SYSCALL(592, dynlib_get_list, void* arg1, void* arg2, size_t** arg3);
+SYSCALL(592, dynlib_get_list, uint32_t* handles, size_t max_count, size_t* count);
 SYSCALL(594, dynlib_load_prx, const char* path, void* arg2, uint32_t* arg3, void* arg4);
 SYSCALL(596, dynlib_do_copy_relocations);
 SYSCALL(598, dynlib_get_proc_param, void** data_address, size_t* data_size);

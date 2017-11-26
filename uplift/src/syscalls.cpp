@@ -438,9 +438,14 @@ SYSCALL_IMPL(dynlib_dlsym, uint32_t id, const char* cname, void** sym)
   return false;
 }
 
-SYSCALL_IMPL(dynlib_get_list, void* arg1, void* arg2, size_t** arg3)
+SYSCALL_IMPL(dynlib_get_list, uint32_t* handles, size_t max_count, size_t* count)
 {
-  *arg3 = nullptr;
+  size_t i = 0;
+  for (auto it = loader->objects_.begin(); i < max_count && it != loader->objects_.end(); ++it, ++i)
+  {
+    *(handles++) = (*it)->id();
+  }
+  *count = i;
   return true;
 }
 
