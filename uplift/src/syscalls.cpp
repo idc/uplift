@@ -127,6 +127,20 @@ SYSCALL_IMPL(ioctl, int fd, uint32_t request, void* argp)
   return false;
 }
 
+SYSCALL_IMPL(munmap, void* addr, size_t len)
+{
+  printf("munmap: %p-%p (%I64u)\n", addr, &static_cast<const uint8_t*>(addr)[(!len ? 1 : len) - 1], len);
+  retval.val = 0;
+  return true;
+}
+
+SYSCALL_IMPL(mprotect, const void* addr, size_t len, int prot)
+{
+  printf("mprotect: %p-%p (%I64u) %x\n", addr, &static_cast<const uint8_t*>(addr)[(!len ? 1 : len) - 1], len, prot);
+  retval.val = 0;
+  return true;
+}
+
 SYSCALL_IMPL(netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t data_size)
 {
   switch (op)
@@ -526,10 +540,10 @@ struct dynlib_info_ex
   void* fini_address;
   uint64_t unknown_138;
   uint64_t unknown_140;
-  void* eh_frame_address;
-  void* frame_info_1;
-  uint32_t eh_frame_memory_size;
-  uint32_t frame_info_2;
+  void* eh_frame_header_buffer;
+  void* eh_frame_data_buffer;
+  uint32_t eh_frame_header_size;
+  uint32_t eh_frame_data_size;
   uint64_t unknown_160;
   uint32_t unknown_168;
   uint32_t unknown_16C;
@@ -578,8 +592,10 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t id, void* arg2, void* vinfo)
   ex.tls_align = static_cast<uint32_t>(program_info.tls_align);
   ex.init_address = !dynamic_info.init_offset ? nullptr : &base_address[dynamic_info.init_offset];
   ex.fini_address = !dynamic_info.fini_offset ? nullptr : &base_address[dynamic_info.fini_offset];
-  ex.eh_frame_address = !program_info.eh_frame_address ? nullptr : &base_address[program_info.eh_frame_address];
-  ex.eh_frame_memory_size = static_cast<uint32_t>(program_info.eh_frame_memory_size);
+  ex.eh_frame_header_buffer = !program_info.eh_frame_address ? nullptr : &base_address[program_info.eh_frame_address];
+  ex.eh_frame_header_size = static_cast<uint32_t>(program_info.eh_frame_memory_size);
+  ex.eh_frame_data_buffer = module->eh_frame_data_buffer();
+  ex.eh_frame_data_size = static_cast<uint32_t>(module->eh_frame_data_size());
   ex.unknown_1A0 = 1;
   std::memcpy(vinfo, &ex, sizeof(dynlib_info_ex));
   return true;

@@ -38,6 +38,9 @@ namespace uplift
     ProgramInfo program_info() const { return program_info_; }
     DynamicInfo dynamic_info() const { return dynamic_info_; }
 
+    uint8_t* eh_frame_data_buffer() const { return eh_frame_data_buffer_; }
+    size_t eh_frame_data_size() const { return static_cast<size_t>(eh_frame_data_buffer_end_ - eh_frame_data_buffer_); }
+
     void set_id(uint32_t id) { id_ = id; }
     void set_fsbase(void* fsbase);
 
@@ -48,8 +51,9 @@ namespace uplift
     void Unprotect();
 
   private:
-    void ProcessDynamic();
-    void AnalyzeAndPatchCode();
+    bool ProcessEHFrame();
+    bool ProcessDynamic();
+    bool AnalyzeAndPatchCode();
 
     bool ResolveExternalSymbol(const std::string& local_name, uint64_t& value);
 
@@ -75,6 +79,8 @@ namespace uplift
     RIPZone rip_zone_;
     uint64_t sce_proc_param_address_;
     uint64_t sce_proc_param_size_;
+    uint8_t* eh_frame_data_buffer_;
+    uint8_t* eh_frame_data_buffer_end_;
     uint64_t entrypoint_;
     std::vector<llvm::ELF::Elf64_Phdr> load_headers_;
     std::unordered_map<uint8_t*, uint8_t> interrupts_;

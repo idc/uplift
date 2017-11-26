@@ -6,6 +6,8 @@ SYSCALL(5, open, const char* path, int flags, uint64_t mode);
 SYSCALL(6, close, int fd);
 SYSCALL(20, getpid);
 SYSCALL(54, ioctl, int fd, uint32_t request, void* argp);
+SYSCALL(73, munmap, void* addr, size_t len);
+SYSCALL(74, mprotect, const void *addr, size_t len, int prot);
 SYSCALL(99, netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t data_size);
 SYSCALL(113, socketex, const char* name, int domain, int type, int protocol);
 SYSCALL(114, socketclose, int fd);

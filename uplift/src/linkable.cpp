@@ -297,11 +297,21 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
       linkable->load_headers_.push_back(*phdr);
     }
     linkable->program_info_ = info;
-    linkable->ProcessDynamic();
-    linkable->AnalyzeAndPatchCode();
+    if (!linkable->ProcessEHFrame())
+    {
+      assert_always();
+    }
+    if (!linkable->ProcessDynamic())
+    {
+      assert_always();
+    }
+    if (!linkable->AnalyzeAndPatchCode())
+    {
+      assert_always();
+    }
     linkable->Protect();
 
-    xe::debugging::DebugPrint("MODULE = %S @ %p\n", linkable->name().c_str(), base_address.ptr);
+    xe::debugging::DebugPrint("LOAD MODULE: %S @ %p\n", linkable->name().c_str(), base_address.ptr);
 
     return std::move(linkable);
   }
@@ -349,6 +359,8 @@ Linkable::Linkable(Loader* loader, const std::wstring& path)
   , rip_zone_()
   , sce_proc_param_address_(0)
   , sce_proc_param_size_(0)
+  , eh_frame_data_buffer_(nullptr)
+  , eh_frame_data_buffer_end_(nullptr)
   , entrypoint_(0)
   , program_info_()
   , dynamic_info_()
@@ -379,17 +391,119 @@ Linkable::~Linkable()
   }
 }
 
-void Linkable::ProcessDynamic()
+bool Linkable::ProcessEHFrame()
 {
-  if (!get_dynamic_info(
+  if (program_info_.eh_frame_address == 0 || program_info_.eh_frame_memory_size < 4)
+  {
+    return false;
+  }
+
+  uint8_t* current;
+
+  auto header_buffer = &base_address_[program_info_.eh_frame_address];
+
+  auto version = header_buffer[0];
+  auto data_pointer_encoding = header_buffer[1];
+  auto fde_count_encoding = header_buffer[2];
+  auto search_table_pointer_encoding = header_buffer[3];
+  current = &header_buffer[4];
+
+  if (version != 1)
+  {
+    return false;
+  }
+
+  uint8_t* data_buffer;
+  if (data_pointer_encoding == 0x03) // relative to base address
+  {
+    auto offset = *reinterpret_cast<uint32_t*>(current);
+    current += 4;
+    data_buffer = &base_address_[offset];
+  }
+  else if (data_pointer_encoding == 0x1B) // relative to eh_frame
+  {
+    auto offset = *reinterpret_cast<int32_t*>(current);
+    current += 4;
+    data_buffer = &current[offset];
+  }
+  else
+  {
+    return false;
+  }
+
+  if (!data_buffer)
+  {
+    return false;
+  }
+
+  uint8_t* data_buffer_end = data_buffer;
+  while (true)
+  {
+    size_t size = *reinterpret_cast<int32_t*>(data_buffer_end);
+    if (size == 0)
+    {
+      data_buffer_end = &data_buffer_end[4];
+      break;
+    }
+    if (size == -1)
+    {
+      size = 12 + *reinterpret_cast<size_t*>(&data_buffer_end[4]);
+    }
+    else
+    {
+      size = 4 + size;
+    }
+    data_buffer_end = &data_buffer_end[size];
+  }
+
+  size_t fde_count;
+  if (fde_count_encoding == 0x03) // absolute
+  {
+    fde_count = *reinterpret_cast<uint32_t*>(current);
+    current += 4;
+  }
+  else
+  {
+    return false;
+  }
+
+  if (search_table_pointer_encoding != 0x3B) // relative to eh_frame
+  {
+    return false;
+  }
+
+  /*
+  struct search_table_entry
+  {
+    int32_t initial_offset;
+    int32_t fde_offset;
+  };
+
+  auto search_table = reinterpret_cast<const search_table_entry*>(current);
+  for (size_t i = 0; i < fde_count; ++i)
+  {
+    auto search_entry = &search_table[i];
+
+    auto base_code = &header_buffer[search_entry->initial_offset];
+    auto fde = &header_buffer[search_entry->fde_offset];
+
+    printf("%p %p\n", base_code, fde);
+  }
+  */
+
+  eh_frame_data_buffer_ = data_buffer;
+  eh_frame_data_buffer_end_ = data_buffer_end;
+  return true;
+}
+
+bool Linkable::ProcessDynamic()
+{
+  return get_dynamic_info(
     reinterpret_cast<elf::Elf64_Dyn*>(dynamic_buffer_),
     dynamic_size_ / sizeof(elf::Elf64_Dyn),
     sce_dynlibdata_buffer_,
     sce_dynlibdata_size_,
-    dynamic_info_))
-  {
-    assert_always();
-  }
+    dynamic_info_);
 }
 
 bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointers, RIPZone& rip_zone)
@@ -555,7 +669,7 @@ bool is_bmi1_instruction(x86_insn op)
     op == X86_INS_TZCNT;
 }
 
-void Linkable::AnalyzeAndPatchCode()
+bool Linkable::AnalyzeAndPatchCode()
 {
   if (name_ == L"libkernel.prx")
   {
@@ -577,7 +691,7 @@ void Linkable::AnalyzeAndPatchCode()
 
   if (!found_code)
   {
-    return;
+    return true;
   }
 
   auto program_buffer = &base_address_[phdr.p_vaddr];
@@ -586,14 +700,14 @@ void Linkable::AnalyzeAndPatchCode()
   if (!get_text_region(program_buffer, phdr.p_filesz, text_buffer, text_size))
   {
     assert_always();
-    return;
+    return false;
   }
 
   csh handle;
   if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
   {
     assert_always();
-    return;
+    return false;
   }
   cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
@@ -679,6 +793,7 @@ void Linkable::AnalyzeAndPatchCode()
   }
   cs_free(insn, 1);
   cs_close(&handle);
+  return true;
 }
 
 struct StringTable
@@ -793,6 +908,8 @@ bool Linkable::ResolveExternalSymbol(const std::string& local_name, uint64_t& va
 
 bool Linkable::Relocate()
 {
+  xe::debugging::DebugPrint("RELOCATE MODULE: %S @ %p\n", name_.c_str(), base_address_);
+
   Unprotect();
   auto result = RelocateRela() && RelocatePltRela();
   Protect();
