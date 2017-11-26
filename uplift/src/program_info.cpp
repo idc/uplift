@@ -3,6 +3,7 @@
 #include <llvm/BinaryFormat/ELF.h>
 
 #include <xenia/base/assert.h>
+#include <xenia/base/math.h>
 
 #include "program_info.hpp"
 #include "helpers.hpp"
@@ -42,7 +43,7 @@ bool uplift::get_program_info(elf::Elf64_Phdr* phdr, elf::Elf64_Half count, Prog
           info.load_start = phdr->p_vaddr;
         }
 
-        auto aligned_end = align_size(phdr->p_vaddr + phdr->p_memsz, 0x4000);
+        auto aligned_end = xe::align<elf::Elf64_Addr>(phdr->p_vaddr + phdr->p_memsz, 0x4000);
         if (aligned_end >= info.load_end)
         {
           info.load_end = aligned_end;

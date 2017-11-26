@@ -2,20 +2,20 @@
 
 #include <xenia/base/assert.h>
 
-#include "loader.hpp"
+#include "runtime.hpp"
 #include "kobject.hpp"
 
 using namespace uplift;
 using namespace uplift::objects;
 
-Object::Object(Loader* loader, Type type)
-  : loader_(loader)
+Object::Object(Runtime* runtime, Type type)
+  : runtime_(runtime)
   , handles_()
   , pointer_ref_count_(1)
   , type_(type)
 {
   handles_.reserve(10);
-  loader->object_table()->AddHandle(this, nullptr);
+  runtime->object_table()->AddHandle(this, nullptr);
 }
 
 Object::~Object()
@@ -25,12 +25,12 @@ Object::~Object()
 
 void Object::RetainHandle() 
 {
-  loader_->object_table()->RetainHandle(handles_[0]);
+  runtime_->object_table()->RetainHandle(handles_[0]);
 }
 
 bool Object::ReleaseHandle()
 {
-  return loader_->object_table()->ReleaseHandle(handles_[0]);
+  return runtime_->object_table()->ReleaseHandle(handles_[0]);
 }
 
 void Object::Retain() { ++pointer_ref_count_; }
@@ -47,7 +47,7 @@ uint32_t Object::Delete()
 {
   if (!name_.empty())
   {
-    loader_->object_table()->RemoveNameMapping(name_);
+    runtime_->object_table()->RemoveNameMapping(name_);
   }
-  return loader_->object_table()->RemoveHandle(handles_[0]);
+  return runtime_->object_table()->RemoveHandle(handles_[0]);
 }

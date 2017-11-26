@@ -18,8 +18,9 @@
 
 #include <xbyak/xbyak.h>
 
-#include "loader.hpp"
-#include "linkable.hpp"
+#include "kobject.hpp"
+#include "runtime.hpp"
+#include "module.hpp"
 #include "program_info.hpp"
 #include "dynamic_info.hpp"
 #include "helpers.hpp"
@@ -34,9 +35,9 @@ bool is_loadable(elf::Elf64_Word type)
   return type == elf::PT_LOAD || type == 0x61000010ull;
 }
 
-std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& path)
+object_ref<Module> Module::Load(Runtime* runtime, const std::wstring& path)
 {
-  if (loader == nullptr)
+  if (runtime == nullptr)
   {
     return nullptr;
   }
@@ -174,7 +175,7 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
   struct rip_zone_definition
   {
     RIPPointers rip_pointers;
-    uint8_t padding1[align_size_const(sizeof(RIPPointers), page_size) - sizeof(RIPPointers)];
+    uint8_t padding1[xe::align_const<size_t>(sizeof(RIPPointers), page_size) - sizeof(RIPPointers)];
     uint8_t safe1[page_size];
     uint8_t free_zone[thirtytwo_mb];
     //uint8_t padding2[align_size_const(eight_mb, page_size) - eight_mb];
@@ -184,10 +185,10 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
   const size_t desired_rip_zone_size = sizeof(rip_zone_definition);
 
   address base_address;
-  base_address.val = align_size(reserved_address.val, four_gb);
+  base_address.val = xe::align<uint64_t>(reserved_address.val, four_gb);
 
   address reserved_address_aligned;
-  reserved_address_aligned.val = align_size(reserved_address.val, page_size);
+  reserved_address_aligned.val = xe::align<uint64_t>(reserved_address.val, page_size);
 
   auto reserved_before_size = static_cast<size_t>(base_address.ptr - reserved_address_aligned.ptr);
   auto reserved_after_size = static_cast<size_t>(&reserved_address.ptr[eight_gb] - &base_address.ptr[load_size]);
@@ -204,7 +205,7 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
   }
   else if (reserved_after_size >= desired_rip_zone_size)
   {
-    rip_zone_start.val = align_size(base_address.val + load_size, page_size);
+    rip_zone_start.val = xe::align<uint64_t>(base_address.val + load_size, page_size);
     rip_zone_end.ptr = &rip_zone_start.ptr[desired_rip_zone_size];
     assert_true(rip_zone_start.ptr >= &base_address.ptr[load_size] && rip_zone_end.ptr <= &reserved_address.ptr[eight_gb]);
   }
@@ -225,8 +226,8 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
     goto error;
   }
 
-  rip_pointers->loader = loader;
-  rip_pointers->syscall_handler = loader->syscall_handler();
+  rip_pointers->runtime = runtime;
+  rip_pointers->syscall_handler = runtime->syscall_handler();
 
   auto free_zone = &rip_zone_data->free_zone[0];
   if (xe::memory::AllocFixed(
@@ -267,7 +268,7 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
 
   // we're good
   {
-    auto linkable = std::make_unique<Linkable>(loader, path);
+    auto linkable = object_ref<Module>(new Module(runtime, path));
     linkable->type_ = ehdr->e_type;
     linkable->dynamic_buffer_ = dynamic_buffer;
     linkable->dynamic_size_ = info.dynamic_file_size;
@@ -311,9 +312,14 @@ std::unique_ptr<Linkable> Linkable::Load(Loader* loader, const std::wstring& pat
     }
     linkable->Protect();
 
-    xe::debugging::DebugPrint("LOAD MODULE: %S @ %p\n", linkable->name().c_str(), base_address.ptr);
+    xe::debugging::DebugPrint(
+      "LOAD MODULE: %S @ %p (%p, %p)\n",
+      linkable->name().c_str(),
+      base_address.ptr,
+      !linkable->dynamic_info().has_init_offset ? nullptr : &base_address.ptr[linkable->dynamic_info().init_offset],
+      !linkable->dynamic_info().has_fini_offset ? nullptr : &base_address.ptr[linkable->dynamic_info().fini_offset]);
 
-    return std::move(linkable);
+    return linkable;
   }
 
 error:
@@ -340,8 +346,9 @@ error:
   return nullptr;
 }
 
-Linkable::Linkable(Loader* loader, const std::wstring& path)
-  : loader_(loader)
+Module::Module(Runtime* runtime, const std::wstring& path)
+  : Object(runtime, ObjectType)
+  , runtime_(runtime)
   , path_(path)
   , name_(xe::find_name_from_path(path))
   , type_(0)
@@ -367,7 +374,7 @@ Linkable::Linkable(Loader* loader, const std::wstring& path)
 {
 }
 
-Linkable::~Linkable()
+Module::~Module()
 {
   if (rip_pointers_)
   {
@@ -391,7 +398,7 @@ Linkable::~Linkable()
   }
 }
 
-bool Linkable::ProcessEHFrame()
+bool Module::ProcessEHFrame()
 {
   if (program_info_.eh_frame_address == 0 || program_info_.eh_frame_memory_size < 4)
   {
@@ -496,7 +503,7 @@ bool Linkable::ProcessEHFrame()
   return true;
 }
 
-bool Linkable::ProcessDynamic()
+bool Module::ProcessDynamic()
 {
   return get_dynamic_info(
     reinterpret_cast<elf::Elf64_Dyn*>(dynamic_buffer_),
@@ -539,7 +546,7 @@ bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointe
 
     auto trampoline_code = generator.getCode();
     auto trampoline_size = generator.getSize();
-    auto aligned_size = align_size(trampoline_size, 32);
+    auto aligned_size = xe::align<size_t>(trampoline_size, 32);
 
     uint8_t* rip_code;
     if (!rip_zone.take(aligned_size, rip_code))
@@ -556,7 +563,7 @@ bool patch_fsbase_access(uint8_t* target, cs_insn* insn, RIPPointers* rip_pointe
 
     if (trampoline_size < aligned_size)
     {
-      memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
+      std::memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
     }
 
     assert_true(insn->size >= 5);
@@ -588,7 +595,7 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
 
     auto trampoline_code = generator.getCode();
     auto trampoline_size = generator.getSize();
-    auto aligned_size = align_size(trampoline_size, 32);
+    auto aligned_size = xe::align<size_t>(trampoline_size, 32);
 
     uint8_t* rip_code;
     if (!rip_zone.take(aligned_size, rip_code))
@@ -605,7 +612,7 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
 
     if (trampoline_size < aligned_size)
     {
-      memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
+      std::memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
     }
 
     auto disp = static_cast<uint32_t>(rip_code - &target[5]);
@@ -620,7 +627,7 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
 
     auto trampoline_code = generator.getCode();
     auto trampoline_size = generator.getSize();
-    auto aligned_size = align_size(trampoline_size, 32);
+    auto aligned_size = xe::align<size_t>(trampoline_size, 32);
 
     uint8_t* rip_code;
     if (!rip_zone.take(aligned_size, rip_code))
@@ -637,7 +644,7 @@ bool hook_syscall(uint64_t id, uint8_t* target, size_t target_size, RIPPointers*
 
     if (trampoline_size < aligned_size)
     {
-      memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
+      std::memset(&rip_code[trampoline_size], 0xCC, aligned_size - trampoline_size);
     }
 
     auto disp = static_cast<uint32_t>(rip_code - &target[5]);
@@ -669,7 +676,7 @@ bool is_bmi1_instruction(x86_insn op)
     op == X86_INS_TZCNT;
 }
 
-bool Linkable::AnalyzeAndPatchCode()
+bool Module::AnalyzeAndPatchCode()
 {
   if (name_ == L"libkernel.prx")
   {
@@ -761,7 +768,7 @@ bool Linkable::AnalyzeAndPatchCode()
     {
       assert_unhandled_case(X86_INS_INTO);
     }
-    else if (!loader_->cpu_has(Xbyak::util::Cpu::tBMI1) && is_bmi1_instruction((x86_insn)insn->id))
+    else if (!runtime_->cpu_has(Xbyak::util::Cpu::tBMI1) && is_bmi1_instruction((x86_insn)insn->id))
     {
       assert_true(insn->size >= 5);
       auto target = &program_buffer[insn->address];
@@ -776,11 +783,19 @@ bool Linkable::AnalyzeAndPatchCode()
       for (uint8_t i = 0; i < insn->detail->x86.op_count; i++)
       {
         auto operand = insn->detail->x86.operands[i];
-        if (operand.type == X86_OP_MEM &&
-            operand.mem.segment == X86_REG_FS)
+        if (operand.type == X86_OP_MEM)
         {
-          is_fs = true;
-          break;
+          if (operand.mem.segment == X86_REG_FS)
+          {
+            is_fs = true;
+            break;
+          }
+          else if (operand.mem.segment == X86_REG_DS ||
+                   operand.mem.segment == X86_REG_ES ||
+                   operand.mem.segment == X86_REG_GS)
+          {
+            assert_always();
+          }
         }
       }
 
@@ -807,7 +822,7 @@ struct StringTable
   }
 };
 
-void Linkable::set_fsbase(void* fsbase)
+void Module::set_fsbase(void* fsbase)
 {
   if (!rip_pointers_)
   {
@@ -817,7 +832,7 @@ void Linkable::set_fsbase(void* fsbase)
   rip_pointers_->fsbase = fsbase;
 }
 
-bool Linkable::ResolveSymbol(uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value)
+bool Module::ResolveSymbol(uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value)
 {
   auto hash_table = reinterpret_cast<elf::Elf64_Word*>(&sce_dynlibdata_buffer_[dynamic_info_.hash_table_offset]);
   auto bucket_count = hash_table[0];
@@ -870,7 +885,7 @@ bool Linkable::ResolveSymbol(uint32_t symbol_name_hash, const std::string& symbo
   return false;
 }
 
-bool Linkable::ResolveExternalSymbol(const std::string& local_name, uint64_t& value)
+bool Module::ResolveExternalSymbol(const std::string& local_name, uint64_t& value)
 {
   std::string symbol_name;
   uint16_t module_id, library_id;
@@ -891,13 +906,13 @@ bool Linkable::ResolveExternalSymbol(const std::string& local_name, uint64_t& va
 
   auto name = symbol_name + "#" + library.name + "#" + module.name;
   auto name_hash = elf_hash(name.c_str());
-  if (!loader_->ResolveSymbol(nullptr, name_hash, name, value))
+  if (!runtime_->ResolveSymbol(nullptr, name_hash, name, value))
   {
     printf("FAILED TO RESOLVE: %s\n", name.c_str());
 
     name = "M0z6Dr6TNnM#libkernel#libkernel"; // sceKernelReportUnpatchedFunctionCall
     name_hash = elf_hash(name.c_str());
-    if (!loader_->ResolveSymbol(nullptr, name_hash, name, value))
+    if (!runtime_->ResolveSymbol(nullptr, name_hash, name, value))
     {
       assert_always();
       return false;
@@ -906,7 +921,7 @@ bool Linkable::ResolveExternalSymbol(const std::string& local_name, uint64_t& va
   return true;
 }
 
-bool Linkable::Relocate()
+bool Module::Relocate()
 {
   xe::debugging::DebugPrint("RELOCATE MODULE: %S @ %p\n", name_.c_str(), base_address_);
 
@@ -916,7 +931,7 @@ bool Linkable::Relocate()
   return result;
 }
 
-bool Linkable::RelocateRela()
+bool Module::RelocateRela()
 {
   StringTable string_table =
   {
@@ -1056,7 +1071,7 @@ bool Linkable::RelocateRela()
   return true;
 }
 
-bool Linkable::RelocatePltRela()
+bool Module::RelocatePltRela()
 {
   StringTable string_table =
   {
@@ -1129,7 +1144,7 @@ bool Linkable::RelocatePltRela()
   return true;
 }
 
-void Linkable::Protect()
+void Module::Protect()
 {
   for (auto it = load_headers_.begin(); it != load_headers_.end(); ++it)
   {
@@ -1139,7 +1154,7 @@ void Linkable::Protect()
   }
 }
 
-void Linkable::Unprotect()
+void Module::Unprotect()
 {
   for (auto it = load_headers_.begin(); it != load_headers_.end(); ++it)
   {

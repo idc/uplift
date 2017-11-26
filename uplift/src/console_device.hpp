@@ -10,11 +10,11 @@ namespace uplift
 
 namespace uplift::devices
 {
-  class NotificationDevice : public objects::File
+  class ConsoleDevice : public objects::File
   {
   public:
-    NotificationDevice(Runtime* runtime);
-    ~NotificationDevice();
+    ConsoleDevice(Runtime* runtime);
+    ~ConsoleDevice();
 
     uint32_t Initialize();
     uint32_t Close();

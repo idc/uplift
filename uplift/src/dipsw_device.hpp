@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kobject.hpp"
+#include "kfile.hpp"
 
 namespace uplift
 {
@@ -9,12 +10,10 @@ namespace uplift
 
 namespace uplift::devices
 {
-  class DipswDevice : public objects::Object
+  class DipswDevice : public objects::File
   {
   public:
-    static const Object::Type ObjectType = Type::Device;
-
-    DipswDevice(Loader* loader);
+    DipswDevice(Runtime* runtime);
     ~DipswDevice();
 
     uint32_t Initialize();

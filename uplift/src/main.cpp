@@ -6,8 +6,8 @@
 
 #include <xbyak/xbyak_util.h>
 
-#include "loader.hpp"
-#include "linkable.hpp"
+#include "runtime.hpp"
+#include "module.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -16,11 +16,11 @@ int main(int argc, char* argv[])
   WSAStartup(MAKEWORD(2, 2), &wsa_data);
 #endif
 
-  uplift::Loader loader;
+  uplift::Runtime runtime;
 
   bool missing_feature = false;
 #define CHECK_FEATURE(x,y) \
-  if (!loader.cpu_has(Xbyak::util::Cpu::t ## x)) \
+  if (!runtime.cpu_has(Xbyak::util::Cpu::t ## x)) \
   { \
     printf("Your CPU does not support " y ".\n"); \
     missing_feature = true; \
@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
   /* Check necessary CPU features.
    * https://en.wikipedia.org/wiki/Jaguar_(microarchitecture)#Instruction_set_support
    * Not all Jaguar features are actually available, just a subset.
-   * Features checks left commented out can be simulated by the loader/runtime, when necessary.
+   * Features checks left commented out can be simulated by the runtime, when necessary.
    */
   CHECK_FEATURE(SSE, "SSE");
   CHECK_FEATURE(SSE2, "SSE2");
@@ -57,10 +57,9 @@ int main(int argc, char* argv[])
   auto boot_path = xe::to_absolute_path(xe::to_wstring(argv[1]));
 
   auto base_path = xe::find_base_path(boot_path);
-  loader.set_base_path(base_path);
+  runtime.set_base_path(base_path);
 
-  uplift::Linkable* executable;
-  if (!loader.LoadExecutable(xe::find_name_from_path(boot_path), executable))
+  if (!runtime.LoadExecutable(xe::find_name_from_path(boot_path)))
   {
     return 3;
   }
@@ -73,10 +72,10 @@ int main(int argc, char* argv[])
 
   auto handle_exception = [](xe::Exception* ex, void* data)
   {
-    return static_cast<uplift::Loader*>(data)->HandleException(ex);
+    return static_cast<uplift::Runtime*>(data)->HandleException(ex);
   };
-  xe::ExceptionHandler::Install(handle_exception, &loader);
-  loader.Run(args);
-  xe::ExceptionHandler::Uninstall(handle_exception, &loader);
+  xe::ExceptionHandler::Install(handle_exception, &runtime);
+  runtime.Run(args);
+  xe::ExceptionHandler::Uninstall(handle_exception, &runtime);
   return 0;
 }

@@ -1,14 +1,14 @@
 #include "stdafx.h"
 
-#include "loader.hpp"
+#include "runtime.hpp"
 #include "kobject.hpp"
 #include "dipsw_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
-DipswDevice::DipswDevice(Loader* loader)
-  : Object(loader, ObjectType)
+DipswDevice::DipswDevice(Runtime* runtime)
+  : File(runtime)
 {
 }
 

@@ -6,7 +6,7 @@ namespace uplift
   struct RIPPointers
   {
     void* fsbase;
-    void* loader;
+    void* runtime;
     void* syscall_handler;
   };
 #pragma pack(pop)

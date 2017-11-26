@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kobject.hpp"
+#include "kfile.hpp"
 
 namespace uplift
 {
@@ -9,11 +10,9 @@ namespace uplift
 
 namespace uplift::objects
 {
-  class Socket : public Object
+  class Socket : public File
   {
   public:
-    static const Object::Type ObjectType = Type::Socket;
-
     enum class Domain : int32_t
     {
       Invalid = -1,
@@ -36,7 +35,7 @@ namespace uplift::objects
       UDP = 17,
     };
 
-    Socket(Loader* loader);
+    Socket(Runtime* runtime);
     ~Socket();
 
     uint64_t native_handle() const { return native_handle_; }
@@ -49,7 +48,7 @@ namespace uplift::objects
     uint32_t IOControl(uint32_t request, void* argp);
 
   private:
-    Socket(Loader* loader, uint32_t native_handle);
+    Socket(Runtime* runtime, uint32_t native_handle);
     uint64_t native_handle_ = -1;
 
     Domain domain_;

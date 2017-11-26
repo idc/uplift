@@ -92,13 +92,17 @@
   <ItemGroup>
     <ClInclude Include="src\bmi1.hpp" />
     <ClInclude Include="src\code_generators.hpp" />
+    <ClInclude Include="src\console_device.hpp" />
+    <ClInclude Include="src\deci_tty_device.hpp" />
     <ClInclude Include="src\dipsw_device.hpp" />
     <ClInclude Include="src\dynamic_info.hpp" />
+    <ClInclude Include="src\eport_device.hpp" />
     <ClInclude Include="src\helpers.hpp" />
+    <ClInclude Include="src\kfile.hpp" />
     <ClInclude Include="src\kobject.hpp" />
     <ClInclude Include="src\ksocket.hpp" />
-    <ClInclude Include="src\linkable.hpp" />
-    <ClInclude Include="src\loader.hpp" />
+    <ClInclude Include="src\module.hpp" />
+    <ClInclude Include="src\runtime.hpp" />
     <ClInclude Include="src\match.hpp" />
     <ClInclude Include="src\notification_device.hpp" />
     <ClInclude Include="src\object_table.hpp" />
@@ -112,13 +116,17 @@
   <ItemGroup>
     <ClCompile Include="src\bmi1.cpp" />
     <ClCompile Include="src\code_generators.cpp" />
+    <ClCompile Include="src\console_device.cpp" />
+    <ClCompile Include="src\deci_tty_device.cpp" />
     <ClCompile Include="src\dipsw_device.cpp" />
     <ClCompile Include="src\dynamic_info.cpp" />
+    <ClCompile Include="src\eport_device.cpp" />
     <ClCompile Include="src\helpers.cpp" />
+    <ClCompile Include="src\kfile.cpp" />
     <ClCompile Include="src\kobject.cpp" />
     <ClCompile Include="src\ksocket.cpp" />
-    <ClCompile Include="src\linkable.cpp" />
-    <ClCompile Include="src\loader.cpp" />
+    <ClCompile Include="src\module.cpp" />
+    <ClCompile Include="src\runtime.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\match.cpp" />
     <ClCompile Include="src\notification_device.cpp" />

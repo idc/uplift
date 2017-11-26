@@ -2,25 +2,27 @@
 
 namespace uplift
 {
+  class Runtime;
+
   union SyscallReturnValue
   {
     void* ptr;
     uint64_t val;
   };
 
-  typedef bool(*SYSCALL_HANDLER)(Loader* loader, SyscallReturnValue& retval, ...);
+  typedef bool(*SYSCALL_HANDLER)(Runtime* runtime, SyscallReturnValue& retval, ...);
 
   class SYSCALLS
   {
   private:
     SYSCALLS() {}
   public:
-#define SYSCALL(x, y, ...) static bool y(Loader* loader, SyscallReturnValue&, __VA_ARGS__)
+#define SYSCALL(x, y, ...) static bool y(Runtime* runtime, SyscallReturnValue&, __VA_ARGS__)
 #include "syscall_table.inl"
 #undef SYSCALL
   };
 
-  class Loader;
+  class Runtime;
 
   struct SyscallEntry
   {

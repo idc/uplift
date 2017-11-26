@@ -1,14 +1,14 @@
 #include "stdafx.h"
 
-#include "loader.hpp"
+#include "runtime.hpp"
 #include "kobject.hpp"
 #include "notification_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
-NotificationDevice::NotificationDevice(Loader* loader)
-  : Object(loader, ObjectType)
+NotificationDevice::NotificationDevice(Runtime* runtime)
+  : File(runtime)
 {
 }
 

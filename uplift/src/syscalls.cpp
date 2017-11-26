@@ -3,19 +3,23 @@
 #include <xenia/base/memory.h>
 #include <xenia/base/string.h>
 
-#include "loader.hpp"
+#include "runtime.hpp"
 #include "syscalls.hpp"
 #include "helpers.hpp"
 
-#include "dipsw_device.hpp"
-#include "notification_device.hpp"
 #include "ksocket.hpp"
+
+#include "console_device.hpp"
+#include "deci_tty_device.hpp"
+#include "dipsw_device.hpp"
+#include "eport_device.hpp"
+#include "notification_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 using namespace uplift::objects;
 
-#define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Loader* loader, SyscallReturnValue& retval, __VA_ARGS__)
+#define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Runtime* runtime, SyscallReturnValue& retval, __VA_ARGS__)
 
 SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
 {
@@ -31,7 +35,7 @@ SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
   }
   else
   {
-    auto object = loader->object_table()->LookupObject((HANDLE)fd);
+    auto object = runtime->object_table()->LookupObject<File>((HANDLE)fd).get();
     if (object)
     {
       size_t written;
@@ -57,9 +61,33 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
 
   auto path = std::string(cpath);
 
-  if (path == "/dev/dipsw")
+  if (path == "/dev/console")
   {
-    auto device = object_ref<DipswDevice>(new DipswDevice(loader));
+    auto device = object_ref<ConsoleDevice>(new ConsoleDevice(runtime)).get();
+    auto result = device->Initialize();
+    if (result)
+    {
+      retval.val = result;
+      return false;
+    }
+    retval.val = device->handle();
+    return true;
+  }
+  else if (path == "/dev/deci_tty6")
+  {
+    auto device = object_ref<DeciTTYDevice>(new DeciTTYDevice(runtime)).get();
+    auto result = device->Initialize();
+    if (result)
+    {
+      retval.val = result;
+      return false;
+    }
+    retval.val = device->handle();
+    return true;
+  }
+  else if (path == "/dev/dipsw")
+  {
+    auto device = object_ref<DipswDevice>(new DipswDevice(runtime));
     auto result = device->Initialize();
     if (result)
     {
@@ -71,7 +99,7 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
   }
   else if (path == "/dev/notification0" || path == "/dev/notification1")
   {
-    auto device = object_ref<NotificationDevice>(new NotificationDevice(loader));
+    auto device = object_ref<NotificationDevice>(new NotificationDevice(runtime));
     auto result = device->Initialize();
     if (result)
     {
@@ -89,7 +117,7 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
 
 SYSCALL_IMPL(close, int fd)
 {
-  auto object = loader->object_table()->LookupObject((HANDLE)fd);
+  auto object = runtime->object_table()->LookupObject<File>((HANDLE)fd).get();
   if (object)
   {
     object->Close();
@@ -115,11 +143,11 @@ SYSCALL_IMPL(ioctl, int fd, uint32_t request, void* argp)
   printf("ioctl(%d): [%x] inout=%s, group=%c, num=%u, len=%u\n",
          fd, request, label, (request >> 8) & 0xFFu, request & 0xFFu, (request >> 16) & 0x1FFFu);
 
-  auto object = loader->object_table()->LookupObject((HANDLE)fd);
+  auto object = runtime->object_table()->LookupObject<File>((HANDLE)fd).get();
   if (object)
   {
     retval.val = object->IOControl(request, argp);
-    return retval.val != 0;
+    return retval.val == 0;
   }
 
   assert_always();
@@ -160,7 +188,7 @@ SYSCALL_IMPL(netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t d
 
 SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
 {
-  auto socket = object_ref<Socket>(new Socket(loader));
+  auto socket = object_ref<Socket>(new Socket(runtime));
   auto result = socket->Initialize(
     static_cast<Socket::Domain>(domain),
     static_cast<Socket::Type>(type),
@@ -171,14 +199,14 @@ SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
     retval.val = result;
     return false;
   }
-  loader->object_table()->AddNameMapping(name, socket->handle());
+  runtime->object_table()->AddNameMapping(name, socket->handle());
   retval.val = socket->handle();
   return true;
 }
 
 SYSCALL_IMPL(socketclose, int fd)
 {
-  return SYSCALLS::close(loader, retval, fd);
+  return SYSCALLS::close(runtime, retval, fd);
 }
 
 SYSCALL_IMPL(gettimeofday, void* tp, void* tzp)
@@ -193,7 +221,7 @@ SYSCALL_IMPL(sysarch, int number, void* args)
   {
     auto fsbase = *static_cast<void**>(args);
     printf("FSBASE=%p, %p\n", args, fsbase);
-    loader->set_fsbase(fsbase);
+    runtime->set_fsbase(fsbase);
     return true;
   }
   assert_always();
@@ -228,14 +256,29 @@ SYSCALL_IMPL(sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, c
       *oldlenp = 8;
       return true;
     }
+    else if (name == "kern.sched.cpusetsize")
+    {
+      static_cast<uint32_t*>(oldp)[0] = 0x0BADF00D;
+      static_cast<uint32_t*>(oldp)[1] = 4;
+      *oldlenp = 8;
+      return true;
+    }
 
     assert_always();
     return false;
   }
+  else if (namelen == 2 && name[0] == 1 && name[1] == 37)
+  {
+    auto length = *oldlenp;
+    if (length > 256) length = 256;
+    memset(oldp, 4, length);
+    *oldlenp = length;
+    return true;
+  }
   else if (namelen == 2 && name[0] == 1 && name[1] == 33)
   {
     assert_true(*oldlenp == 8);
-    *static_cast<void**>(oldp) = loader->user_stack_end_;
+    *static_cast<void**>(oldp) = runtime->user_stack_end_;
     return true;
   }
   else if (namelen == 2 && name[0] == 0x0BADF00D && name[1] == 1)
@@ -254,6 +297,12 @@ SYSCALL_IMPL(sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, c
   {
     assert_true(*oldlenp == 8);
     *reinterpret_cast<uint64_t*>(oldp) = 16000000000;
+    return true;
+  }
+  else if (namelen == 2 && name[0] == 0x0BADF00D && name[1] == 4)
+  {
+    assert_true(*oldlenp == 4);
+    *reinterpret_cast<uint32_t*>(oldp) = 8;
     return true;
   }
   else if (namelen == 2 && name[0] == 6 && name[1] == 7)
@@ -346,6 +395,12 @@ struct nonsys_int
   uint32_t value;
 };
 
+SYSCALL_IMPL(cpuset_getaffinity, int32_t level, int32_t which, int32_t id, size_t setsize, uint64_t* mask)
+{
+  retval.val = 0;
+  return true;
+}
+
 SYSCALL_IMPL(regmgr_call, uint32_t op, uint32_t id, void* result, void* value, uint64_t type)
 {
   if (op == 25) // non-system get int
@@ -356,7 +411,7 @@ SYSCALL_IMPL(regmgr_call, uint32_t op, uint32_t id, void* result, void* value, u
         int_value->encoded_id == 0x338660835BDE7CB1ull)
     {
       int_value->value = 0;
-      retval.val = true;
+      retval.val = 0;
       return true;
     }
 
@@ -368,10 +423,17 @@ SYSCALL_IMPL(regmgr_call, uint32_t op, uint32_t id, void* result, void* value, u
   return false;
 }
 
+SYSCALL_IMPL(evf_create, const char* name, uint32_t arg2, uint64_t arg3)
+{
+  printf("evf_create: %s %x %I64x\n", name, arg2, arg3);
+  retval.val = 0;
+  return true;
+}
+
 SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
 {
   printf("namedobj_create: %s %p %x\n", name, arg2, arg3);
-  retval.val = ++loader->next_namedobj_id_;
+  retval.val = ++runtime->next_namedobj_id_;
   return true;
 }
 
@@ -392,10 +454,10 @@ SYSCALL_IMPL(mname, uint8_t* arg1, size_t arg2, const char* name, void* arg4)
   return true;
 }
 
-SYSCALL_IMPL(dynlib_dlsym, uint32_t id, const char* cname, void** sym)
+SYSCALL_IMPL(dynlib_dlsym, uint32_t handle, const char* cname, void** sym)
 {
-  Linkable* module;
-  if (!loader->FindModule(id, module))
+  auto module = runtime->object_table()->LookupObject<Module>(handle).get();
+  if (!module)
   {
     retval.val = -1;
     return false;
@@ -440,18 +502,19 @@ SYSCALL_IMPL(dynlib_dlsym, uint32_t id, const char* cname, void** sym)
 
 SYSCALL_IMPL(dynlib_get_list, uint32_t* handles, size_t max_count, size_t* count)
 {
+  auto modules = runtime->object_table()->GetObjectsByType<Module>();
   size_t i = 0;
-  for (auto it = loader->objects_.begin(); i < max_count && it != loader->objects_.end(); ++it, ++i)
+  for (auto it = modules.begin(); i < max_count && it != modules.end(); ++it, ++i)
   {
-    *(handles++) = (*it)->id();
+    *(handles++) = (*it)->handle();
   }
   *count = i;
   return true;
 }
 
-SYSCALL_IMPL(dynlib_load_prx, const char* cpath, void* arg2, uint32_t* arg3, void* arg4)
+SYSCALL_IMPL(dynlib_load_prx, const char* cpath, void* arg2, uint32_t* handle, void* arg4)
 {
-  printf("LOAD PRX: %s, %p, %p, %p\n", cpath, arg2, arg3, arg4);
+  printf("LOAD PRX: %s, %p, %p, %p\n", cpath, arg2, handle, arg4);
 
   auto path = xe::to_wstring(cpath);
 
@@ -461,21 +524,22 @@ SYSCALL_IMPL(dynlib_load_prx, const char* cpath, void* arg2, uint32_t* arg3, voi
     path = path.substr(index + 1);
   }
 
-  Linkable* module;
-  if (loader->LoadModule(path, module))
+  auto module = runtime->LoadModule(path);
+  if (module)
   {
     module->Relocate();
-    *arg3 = module->id();
+    *handle = module->handle();
     retval.val = 0;
     return true;
   }
 
   if (path.length() >= 5 && path.substr(path.length() - 5) == L".sprx")
   {
-    if (loader->LoadModule(path.substr(0, path.length() - 5) + L".prx", module))
+    module = runtime->LoadModule(path.substr(0, path.length() - 5) + L".prx");
+    if (module)
     {
       module->Relocate();
-      *arg3 = module->id();
+      *handle = module->handle();
       retval.val = 0;
       return true;
     }
@@ -493,16 +557,15 @@ SYSCALL_IMPL(dynlib_do_copy_relocations)
 
 SYSCALL_IMPL(dynlib_get_proc_param, void** data_address, size_t* data_size)
 {
-  auto eboot = loader->objects_.begin()->get();
-  auto base_address = eboot->base_address();
-  *data_address = base_address ? &base_address[eboot->sce_proc_param_address()] : nullptr;
-  *data_size = eboot->sce_proc_param_size();
+  auto base_address = runtime->boot_module_->base_address();
+  *data_address = base_address ? &base_address[runtime->boot_module_->sce_proc_param_address()] : nullptr;
+  *data_size = runtime->boot_module_->sce_proc_param_size();
   return true;
 }
 
 SYSCALL_IMPL(dynlib_process_needed_and_relocate)
 {
-  bool success = loader->LoadNeededObjects() && loader->RelocateObjects();
+  bool success = runtime->LoadNeededObjects() && runtime->RelocateObjects();
   retval.val = success ? 0 : -1;
   return success;
 }
@@ -533,7 +596,7 @@ struct dynlib_info_ex
 {
   uint64_t struct_size;
   char name[256];
-  uint32_t unknown_108;
+  uint32_t handle;
   uint16_t unknown_10C;
   uint16_t unknown_10E;
   void* tls_address;
@@ -557,10 +620,10 @@ struct dynlib_info_ex
   uint32_t unknown_17C;
   uint8_t unknown_180[32];
   uint32_t unknown_1A0;
-  uint32_t unknown_1A4;
+  int32_t ref_count;
 };
 
-SYSCALL_IMPL(dynlib_get_info_ex, uint32_t id, void* arg2, void* vinfo)
+SYSCALL_IMPL(dynlib_get_info_ex, uint32_t handle, void* arg2, void* vinfo)
 {
   if (static_cast<dynlib_info_ex*>(vinfo)->struct_size != sizeof(dynlib_info_ex))
   {
@@ -571,8 +634,8 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t id, void* arg2, void* vinfo)
   dynlib_info_ex ex;
   std::memset(&ex, 0, sizeof(dynlib_info_ex));
 
-  Linkable* module;
-  if (!loader->FindModule(id, module))
+  auto module = runtime->object_table()->LookupObject<Module>(handle).get();
+  if (!module)
   {
     retval.val = -1;
     return false;
@@ -590,28 +653,44 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t id, void* arg2, void* vinfo)
   auto dynamic_info = module->dynamic_info();
 
   std::strncpy(ex.name, name.c_str(), sizeof(ex.name));
+  ex.handle = module->handle();
   ex.struct_size = sizeof(dynlib_info_ex);
   ex.tls_address = !program_info.tls_address ? nullptr : &base_address[program_info.tls_address];
   ex.tls_file_size = static_cast<uint32_t>(program_info.tls_file_size);
   ex.tls_memory_size = static_cast<uint32_t>(program_info.tls_memory_size);
   ex.tls_align = static_cast<uint32_t>(program_info.tls_align);
-  ex.init_address = !dynamic_info.init_offset ? nullptr : &base_address[dynamic_info.init_offset];
-  ex.fini_address = !dynamic_info.fini_offset ? nullptr : &base_address[dynamic_info.fini_offset];
+  ex.init_address = !dynamic_info.has_init_offset ? nullptr : &base_address[dynamic_info.init_offset];
+  ex.fini_address = !dynamic_info.has_fini_offset ? nullptr : &base_address[dynamic_info.fini_offset];
   ex.eh_frame_header_buffer = !program_info.eh_frame_address ? nullptr : &base_address[program_info.eh_frame_address];
   ex.eh_frame_header_size = static_cast<uint32_t>(program_info.eh_frame_memory_size);
   ex.eh_frame_data_buffer = module->eh_frame_data_buffer();
   ex.eh_frame_data_size = static_cast<uint32_t>(module->eh_frame_data_size());
   ex.unknown_1A0 = 1;
+  ex.ref_count = module->pointer_ref_count();
   std::memcpy(vinfo, &ex, sizeof(dynlib_info_ex));
   return true;
 }
 
 // arg1 removed after 1.76 sometime?
-SYSCALL_IMPL(eport_create, /*const char* arg1,*/ uint32_t arg2)
+SYSCALL_IMPL(eport_create, /*const char* name,*/ uint32_t pid)
 {
-  printf("eport_create: %x\n", arg2);
-  retval.val = 78;
-  return false;
+  printf("eport_create: %x\n", pid);
+
+  if (pid != -1 && pid != 123)
+  {
+    retval.val = 78;
+    return false;
+  }
+
+  auto device = object_ref<EportDevice>(new EportDevice(runtime));
+  auto result = device->Initialize();
+  if (result)
+  {
+    retval.val = 35;
+    return false;
+  }
+  retval.val = 0;// device->handle();
+  return true; // intentionally 'leak'?
 }
 
 SYSCALL_IMPL(get_proc_type_info, void* vtype_info)

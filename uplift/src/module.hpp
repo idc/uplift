@@ -13,20 +13,23 @@
 #include "program_info.hpp"
 #include "dynamic_info.hpp"
 
+#include "kobject.hpp"
+
 namespace uplift
 {
   class Loader;
 
-  class Linkable
+  class Module : public objects::Object
   {
   public:
-    static std::unique_ptr<Linkable> Load(Loader* loader, const std::wstring& path);
+    static const Object::Type ObjectType = Type::Module;
 
-    Linkable(Loader* loader, const std::wstring& path);
-    virtual ~Linkable();
+    static object_ref<Module> Load(Runtime* runtime, const std::wstring& path);
+
+    Module(Runtime* runtime, const std::wstring& path);
+    virtual ~Module();
 
     std::wstring name() const { return name_; }
-    uint32_t id() const { return id_; }
     uint16_t type() const { return type_; }
     bool has_dynamic() const { return dynamic_buffer_ != nullptr; }
     uint64_t sce_proc_param_address() const { return sce_proc_param_address_; }
@@ -41,7 +44,6 @@ namespace uplift
     uint8_t* eh_frame_data_buffer() const { return eh_frame_data_buffer_; }
     size_t eh_frame_data_size() const { return static_cast<size_t>(eh_frame_data_buffer_end_ - eh_frame_data_buffer_); }
 
-    void set_id(uint32_t id) { id_ = id; }
     void set_fsbase(void* fsbase);
 
     bool ResolveSymbol(uint32_t hash, const std::string& name, uint64_t& value);
@@ -60,10 +62,9 @@ namespace uplift
     bool RelocateRela();
     bool RelocatePltRela();
 
-    Loader* loader_;
+    Runtime* runtime_;
     std::wstring path_;
     std::wstring name_;
-    uint32_t id_;
     llvm::ELF::Elf64_Half type_;
     uint8_t* dynamic_buffer_;
     size_t dynamic_size_;

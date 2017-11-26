@@ -5,7 +5,7 @@
 
 namespace uplift
 {
-  class Loader;
+  class Runtime;
 
   typedef uint32_t HANDLE;
 
@@ -21,17 +21,18 @@ namespace uplift::objects
     enum class Type
     {
       Invalid = 0,
+      Module,
       File,
-      Device,
-      Socket,
     };
 
   protected:
-    Object(Loader* loader, Type type);
+    Object(Runtime* runtime, Type type);
   public:
     virtual ~Object();
 
-    Loader* loader() const { return loader_; }
+    int32_t pointer_ref_count() const { return pointer_ref_count_; }
+
+    Runtime* runtime() const { return runtime_; }
     Type type() const { return type_; }
 
     int handle() const { return handles_[0]; }
@@ -47,13 +48,8 @@ namespace uplift::objects
     void Release();
     uint32_t Delete();
 
-    virtual uint32_t Close() = 0;
-    virtual uint32_t Read(void* data_buffer, size_t data_size, size_t* read_size) = 0;
-    virtual uint32_t Write(const void* data_buffer, size_t data_size, size_t* written_size) = 0;
-    virtual uint32_t IOControl(uint32_t request, void* argp) = 0;
-
   protected:
-    Loader* loader_;
+    Runtime* runtime_;
 
   private:
     std::atomic<int32_t> pointer_ref_count_;

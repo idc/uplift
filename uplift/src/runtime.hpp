@@ -7,19 +7,19 @@
 
 #include <xbyak/xbyak_util.h>
 
-#include "linkable.hpp"
+#include "module.hpp"
 #include "object_table.hpp"
 #include "syscalls.hpp"
 
 namespace uplift
 {
-  class Loader
+  class Runtime
   {
     friend class SYSCALLS;
 
   public:
-    Loader();
-    virtual ~Loader();
+    Runtime();
+    virtual ~Runtime();
 
     bool cpu_has(Xbyak::util::Cpu::Type type)
     {
@@ -36,16 +36,16 @@ namespace uplift
       base_path_ = base_path;
     }
 
-    bool FindModule(uint32_t id, Linkable*& module);
-    bool FindModule(const std::wstring& name, Linkable*& module);
-    bool LoadModule(const std::wstring& path, Linkable*& module);
-    bool LoadExecutable(const std::wstring& path, Linkable*& executable);
+    object_ref<Module> FindModuleByName(const std::wstring& name);
+    object_ref<Module> LoadModule(const std::wstring& path);
+
+    object_ref<Module> LoadExecutable(const std::wstring& path);
 
     void Run(std::vector<std::string>& args);
 
-    bool ResolveSymbol(Linkable* skip, uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value);
+    bool ResolveSymbol(const Module* skip, uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value);
 
-    bool Loader::HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t args[6]);
+    bool HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t args[6]);
     bool HandleException(xe::Exception* ex);
 
   private:
@@ -55,16 +55,17 @@ namespace uplift
     bool RelocateObjects();
 
     Xbyak::util::Cpu cpu_;
-    ObjectTable object_table_;
-
     std::wstring base_path_;
-    void* fsbase_;
+
+    ObjectTable object_table_;
+    Module* boot_module_;
+
+    SyscallEntry syscall_table_[SyscallTableSize];
+
     void* entrypoint_;
+    void* fsbase_;
     uint8_t* user_stack_base_;
     uint8_t* user_stack_end_;
-    std::vector<std::unique_ptr<Linkable>> objects_;
-    uint32_t next_module_id_;
     uint32_t next_namedobj_id_;
-    SyscallEntry syscall_table_[SyscallTableSize];
   };
 }

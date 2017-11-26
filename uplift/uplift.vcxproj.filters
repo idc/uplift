@@ -18,8 +18,6 @@
     <ClInclude Include="src\stdafx\targetver.h">
       <Filter>stdafx</Filter>
     </ClInclude>
-    <ClInclude Include="src\loader.hpp" />
-    <ClInclude Include="src\linkable.hpp" />
     <ClInclude Include="src\match.hpp" />
     <ClInclude Include="src\helpers.hpp" />
     <ClInclude Include="src\dynamic_info.hpp" />
@@ -44,14 +42,26 @@
     <ClInclude Include="src\dipsw_device.hpp">
       <Filter>devices</Filter>
     </ClInclude>
+    <ClInclude Include="src\eport_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\kfile.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\console_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\deci_tty_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\module.hpp" />
+    <ClInclude Include="src\runtime.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
       <Filter>stdafx</Filter>
     </ClCompile>
-    <ClCompile Include="src\loader.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\linkable.cpp" />
     <ClCompile Include="src\match.cpp" />
     <ClCompile Include="src\helpers.cpp" />
     <ClCompile Include="src\dynamic_info.cpp" />
@@ -74,6 +84,20 @@
     <ClCompile Include="src\dipsw_device.cpp">
       <Filter>devices</Filter>
     </ClCompile>
+    <ClCompile Include="src\eport_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\kfile.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\console_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\deci_tty_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\module.cpp" />
+    <ClCompile Include="src\runtime.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\syscall_table.inl" />

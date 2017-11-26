@@ -302,12 +302,14 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
       case elf::DT_INIT:
       {
         info.init_offset = entry->d_un.d_val;
+        info.has_init_offset = true;
         break;
       }
 
       case elf::DT_FINI:
       {
         info.fini_offset = entry->d_un.d_val;
+        info.has_fini_offset = true;
         break;
       }
 
@@ -320,19 +322,31 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
 
       case elf::DT_SYMBOLIC:
       {
-        info.flags |= elf::DF_SYMBOLIC;
+        info.flags |= DynamicFlags::IsSymbolic;
         break;
       }
 
       case elf::DT_TEXTREL:
       {
-        info.flags |= elf::DF_TEXTREL;
+        info.flags |= DynamicFlags::HasTextRelocations;
         break;
       }
 
       case elf::DT_FLAGS:
       {
-        info.flags = entry->d_un.d_val;
+        auto flags = entry->d_un.d_val;
+        if (flags & elf::DF_SYMBOLIC)
+        {
+          info.flags |= DynamicFlags::IsSymbolic;
+        }
+        if (flags & elf::DF_TEXTREL)
+        {
+          info.flags |= DynamicFlags::HasTextRelocations;
+        }
+        if (flags & elf::DF_BIND_NOW)
+        {
+          info.flags |= DynamicFlags::BindNow;
+        }
         break;
       }
 
@@ -412,7 +426,23 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
 
       case elf::DT_FLAGS_1:
       {
-        info.flags_1 = entry->d_un.d_val;
+        auto flags = entry->d_un.d_val;
+        if (flags & elf::DF_1_NOW)
+        {
+          info.flags |= DynamicFlags::BindNow;
+        }
+        if (flags & elf::DF_1_NODELETE)
+        {
+          info.flags |= DynamicFlags::NoDelete;
+        }
+        if (flags & elf::DF_1_LOADFLTR)
+        {
+          info.flags |= DynamicFlags::LoadFilter;
+        }
+        if (flags & elf::DF_1_NOOPEN)
+        {
+          info.flags |= DynamicFlags::NoOpen;
+        }
         break;
       }
 

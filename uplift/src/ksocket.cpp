@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "loader.hpp"
+#include "runtime.hpp"
 #include "ksocket.hpp"
 
 #ifdef XE_PLATFORM_WIN32
@@ -51,8 +51,8 @@ bool translate_dtp(Domain domain, Type type, Protocol protocol, native_dtp& nati
   return false;
 }
 
-Socket::Socket(Loader* loader)
-  : Object(loader, ObjectType)
+Socket::Socket(Runtime* runtime)
+  : File(runtime)
   , native_handle_(-1)
   , domain_(Domain::Invalid)
   , type_(Type::Invalid)
@@ -60,8 +60,8 @@ Socket::Socket(Loader* loader)
 {
 }
 
-Socket::Socket(Loader* loader, uint32_t native_handle)
-  : Object(loader, Object::Type::Socket)
+Socket::Socket(Runtime* runtime, uint32_t native_handle)
+  : File(runtime)
   , native_handle_(native_handle) 
 {
 }

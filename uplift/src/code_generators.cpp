@@ -51,7 +51,7 @@ SyscallTrampolineGenerator::SyscallTrampolineGenerator()
   Xbyak::Label rip_pointers_pointer;
   Xbyak::Label target_pointer;
 
-  // loader -> RCX
+  // runtime -> RCX
   // syscall id -> RDX
   // RDI, RSI, RDX, R10(RCX), R8, R9 -> R8, R9, stack(0), stack(1), stack(3), stack(4)
 
@@ -98,7 +98,7 @@ SyscallTrampolineGenerator::SyscallTrampolineGenerator()
   L(label2);
 
   mov(rcx, ptr[rip + rip_pointers_pointer]);
-  mov(rcx, ptr[rcx + offsetof(RIPPointers, loader)]);
+  mov(rcx, ptr[rcx + offsetof(RIPPointers, runtime)]);
 
   push(r9); // SHADOW SPACE
   push(r8); // SHADOW SPACE
@@ -132,7 +132,7 @@ NakedSyscallTrampolineGenerator::NakedSyscallTrampolineGenerator(uint64_t syscal
   Xbyak::Label target_pointer;
   Xbyak::Label rip_pointers_pointer;
 
-  // loader -> RCX
+  // runtime -> RCX
   // syscall id -> RDX
   // RDI, RSI, RDX, R10, R8, R9 -> R8, R9, stack(0), stack(1), stack(3), stack(4)
 
@@ -175,7 +175,7 @@ NakedSyscallTrampolineGenerator::NakedSyscallTrampolineGenerator(uint64_t syscal
   }
 
   mov(rcx, ptr[rip + rip_pointers_pointer]);
-  mov(rcx, ptr[rcx + offsetof(RIPPointers, loader)]);
+  mov(rcx, ptr[rcx + offsetof(RIPPointers, runtime)]);
 
   push(r9); // SHADOW SPACE
   push(r8); // SHADOW SPACE

@@ -14,29 +14,29 @@
 
 #include <xbyak/xbyak.h>
 
-#include "loader.hpp"
-#include "linkable.hpp"
+#include "runtime.hpp"
+#include "module.hpp"
 #include "syscalls.hpp"
 #include "bmi1.hpp"
 
 using namespace uplift;
 
-Loader::Loader()
+Runtime::Runtime()
   : cpu_()
-  , object_table_()
   , base_path_()
-  , fsbase_(0)
+  , object_table_()
+  , boot_module_(nullptr)
+  , syscall_table_()
   , entrypoint_(nullptr)
+  , fsbase_(nullptr)
   , user_stack_base_(nullptr)
   , user_stack_end_(nullptr)
-  , next_module_id_(0)
   , next_namedobj_id_(0)
 {
-  std::memset(syscall_table_, 0, sizeof(syscall_table_));
   get_syscall_table(syscall_table_);
 }
 
-Loader::~Loader()
+Runtime::~Runtime()
 {
   if (user_stack_base_ != nullptr)
   {
@@ -45,104 +45,83 @@ Loader::~Loader()
   }
 }
 
-bool Loader::FindModule(uint32_t id, Linkable*& module)
-{
-  auto const& it = std::find_if(objects_.begin(), objects_.end(), [&](std::unique_ptr<Linkable>& l) { return l->id() == id; });
-  if (it != objects_.end())
-  {
-    module = (*it).get();
-    return true;
-  }
-
-  return false;
-}
-
-bool Loader::FindModule(const std::wstring& path, Linkable*& module)
+object_ref<Module> Runtime::FindModuleByName(const std::wstring& path)
 {
   auto name = xe::find_name_from_path(path);
 
-  auto const& it = std::find_if(objects_.begin(), objects_.end(), [&](std::unique_ptr<Linkable>& l) { return l->name() == name; });
-  if (it != objects_.end())
+  auto modules = object_table_.GetObjectsByType<Module>();
+  auto const& it = std::find_if(modules.begin(), modules.end(), [&](const object_ref<Module>& l) { return l->name() == name; });
+  if (it == modules.end())
   {
-    module = (*it).get();
-    return true;
+    return nullptr;
   }
-
-  return false;
+  return *it;
 }
 
-bool Loader::LoadModule(const std::wstring& path, Linkable*& module)
+object_ref<Module> Runtime::LoadModule(const std::wstring& path)
 {
-  if (objects_.size() <= 0)
+  if (!boot_module_)
   {
-    return false;
+    return nullptr;
   }
 
   auto name = xe::find_name_from_path(path);
-
-  if (FindModule(name, module))
+  auto module = FindModuleByName(name);
+  if (module)
   {
-    return true;
+    return module;
   }
 
-  auto linkable = uplift::Linkable::Load(this, xe::join_paths(base_path_, path));
-  if (linkable == nullptr)
+  module = uplift::Module::Load(this, xe::join_paths(base_path_, path));
+  if (!module)
   {
     auto system_path = xe::join_paths(base_path_, L"uplift_sys");
-    linkable = uplift::Linkable::Load(this, xe::join_paths(system_path, path));
-    if (linkable == nullptr)
+    module = uplift::Module::Load(this, xe::join_paths(system_path, path));
+    if (!module)
     {
-      return false;
+      return nullptr;
     }
   }
-
-  module = linkable.get();
-  objects_.push_back(std::move(linkable));
-  module->set_id(++next_module_id_);
-  return true;
+  return module;
 }
 
-bool Loader::LoadExecutable(const std::wstring& path, Linkable*& eboot)
+object_ref<Module> Runtime::LoadExecutable(const std::wstring& path)
 {
-  auto linkable = Linkable::Load(this, xe::join_paths(base_path_, path));
-  if (linkable == nullptr)
+  auto module = Module::Load(this, xe::join_paths(base_path_, path));
+  if (!module)
   {
-    return false;
+    object_table_.PurgeAllObjects();
+    return nullptr;
   }
-
-  eboot = linkable.get();
-  objects_.push_back(std::move(linkable));
-
-  eboot->set_id(++next_module_id_);
+  boot_module_ = module.get();
 
   void* entrypoint;
-  if (!eboot->has_dynamic())
+  if (!module->has_dynamic())
   {
-    entrypoint = eboot->entrypoint();
+    entrypoint = module->entrypoint();
   }
   else
   {
-    Linkable* libkernel;
-    if (!LoadModule(L"libkernel.prx", libkernel))
+    auto libkernel = LoadModule(L"libkernel.prx");
+    if (!libkernel)
     {
       printf("COULD NOT PRELOAD libkernel!\n");
-      objects_.clear();
-      return false;
+      object_table_.PurgeAllObjects();
+      return nullptr;
     }
 
-    Linkable* libc;
-    if (!LoadModule(L"libSceLibcInternal.prx", libc))
+    if (!LoadModule(L"libSceLibcInternal.prx"))
     {
       printf("COULD NOT PRELOAD libSceLibcInternal!\n");
-      objects_.clear();
-      return false;
+      object_table_.PurgeAllObjects();
+      return nullptr;
     }
 
     entrypoint = libkernel->entrypoint();
   }
 
   entrypoint_ = entrypoint;
-  return true;
+  return module;
 }
 
 class EntrypointTrampolineGenerator : public Xbyak::CodeGenerator
@@ -171,16 +150,19 @@ public:
   }
 };
 
-void Loader::Run(std::vector<std::string>& args)
+void Runtime::Run(std::vector<std::string>& args)
 {
+  if (!boot_module_)
+  {
+    return;
+  }
+
   const size_t user_stack_size = 20 * 1024 * 1024;
   user_stack_base_ = static_cast<uint8_t*>(xe::memory::AllocFixed(
     0, user_stack_size, xe::memory::AllocationType::kReserve, xe::memory::PageAccess::kNoAccess));
   user_stack_end_ = &user_stack_base_[user_stack_size];
 
   printf("user stack: %p-%p\n", user_stack_base_, user_stack_end_ - 1);
-
-  auto eboot = (*objects_.begin()).get();
 
   EntrypointTrampolineGenerator trampoline(entrypoint_);
   auto func = trampoline.getCode<void*(*)(void*)>();
@@ -193,7 +175,7 @@ void Loader::Run(std::vector<std::string>& args)
   stack[128];
   stack[0].val = 1 + args.size(); // argc
   auto s = reinterpret_cast<stack_entry*>(&stack[1]);
-  (*s++).ptr = eboot->name().c_str();
+  (*s++).ptr = boot_module_->name().c_str();
   for (auto it = args.begin(); it != args.end(); ++it)
   {
     (*s++).ptr = (*it).c_str();
@@ -201,16 +183,17 @@ void Loader::Run(std::vector<std::string>& args)
   (*s++).ptr = nullptr; // arg null terminator
   (*s++).ptr = nullptr; // env null terminator
   (*s++).val = 9ull; // entrypoint type
-  (*s++).ptr = eboot->entrypoint();
+  (*s++).ptr = boot_module_->entrypoint();
   (*s++).ptr = nullptr; // aux null type
   (*s++).ptr = nullptr;
   
   func(stack);
 }
 
-bool Loader::ResolveSymbol(Linkable* skip, uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value)
+bool Runtime::ResolveSymbol(const Module* skip, uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value)
 {
-  for (auto it = objects_.begin(); it != objects_.end(); ++it)
+  auto modules = object_table_.GetObjectsByType<Module>();
+  for (auto it = modules.begin(); it != modules.end(); ++it)
   {
     if (skip != nullptr && (*it).get() == skip)
     {
@@ -224,7 +207,7 @@ bool Loader::ResolveSymbol(Linkable* skip, uint32_t symbol_name_hash, const std:
   return false;
 }
 
-bool Loader::HandleException(xe::Exception* ex)
+bool Runtime::HandleException(xe::Exception* ex)
 {
   if (ex->code() != xe::Exception::Code::kIllegalInstruction)
   {
@@ -280,7 +263,7 @@ bool Loader::HandleException(xe::Exception* ex)
 }
 
 bool syscall_dispatch_trampoline(
-  Loader* loader, uint64_t id,
+  Runtime* runtime, uint64_t id,
   uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6,
   SyscallReturnValue& result)
 {
@@ -291,15 +274,15 @@ bool syscall_dispatch_trampoline(
   args[3] = arg4;
   args[4] = arg5;
   args[5] = arg6;
-  return loader->HandleSyscall(id, result, args);
+  return runtime->HandleSyscall(id, result, args);
 }
 
-void* Loader::syscall_handler() const
+void* Runtime::syscall_handler() const
 {
   return syscall_dispatch_trampoline;
 }
 
-bool Loader::HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t args[6])
+bool Runtime::HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t args[6])
 {
   if (id >= _countof(syscall_table_) || syscall_table_[id].handler == nullptr)
   {
@@ -312,23 +295,25 @@ bool Loader::HandleSyscall(uint64_t id, SyscallReturnValue& result, uint64_t arg
   return static_cast<SYSCALL_HANDLER>(syscall_table_[id].handler)(this, result, args[0], args[1], args[2], args[3], args[4], args[5]);
 }
 
-void Loader::set_fsbase(void* fsbase)
+void Runtime::set_fsbase(void* fsbase)
 {
   fsbase_ = fsbase;
-  for (auto it = objects_.begin(); it != objects_.end(); ++it)
+  auto modules = object_table_.GetObjectsByType<Module>();
+  for (auto it = modules.begin(); it != modules.end(); ++it)
   {
     (*it)->set_fsbase(fsbase);
   }
 }
 
-bool Loader::LoadNeededObjects()
+bool Runtime::LoadNeededObjects()
 {
-  printf("LOADING NEEDED OBJECTS\n");
+  printf("LOADING NEEDED MODULES\n");
+  auto modules = object_table_.GetObjectsByType<Module>();
 
-  std::queue<Linkable*> queue;
-  for (auto it = objects_.begin(); it != objects_.end(); ++it)
+  std::queue<object_ref<Module>> queue;
+  for (auto it = modules.begin(); it != modules.end(); ++it)
   {
-    queue.push((*it).get());
+    queue.push(*it);
   }
 
   while (queue.size() > 0)
@@ -339,30 +324,32 @@ bool Loader::LoadNeededObjects()
     auto shared_object_names = linkable->dynamic_info().shared_object_names;
     for (auto it = shared_object_names.begin(); it != shared_object_names.end(); ++it)
     {
-      const auto& shared_object_name = *it;
-      Linkable* dummy;
-      if (FindModule(xe::to_wstring(shared_object_name), dummy))
+      auto shared_object_name = xe::to_wstring(*it);
+
+      if (FindModuleByName(shared_object_name))
       {
         continue;
       }
 
-      if (!LoadModule(xe::to_wstring(shared_object_name), dummy))
+      auto module = LoadModule(shared_object_name);
+      if (!module)
       {
-        printf("Failed to preload needed '%s'.\n", shared_object_name.c_str());
+        printf("Failed to preload needed '%S'.\n", shared_object_name.c_str());
         continue;
       }
 
-      queue.push(dummy);
+      queue.push(module);
     }
   }
 
   return true;
 }
 
-bool Loader::RelocateObjects()
+bool Runtime::RelocateObjects()
 {
-  printf("RELOCATING OBJECTS\n");
-  for (auto it = objects_.begin(); it != objects_.end(); ++it)
+  printf("RELOCATING MODULES\n");
+  auto modules = object_table_.GetObjectsByType<Module>();
+  for (auto it = modules.begin(); it != modules.end(); ++it)
   {
     if (!(*it)->Relocate())
     {
