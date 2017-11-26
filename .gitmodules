@@ -1,9 +1,9 @@
 [submodule "capstone"]
-	path = capstone
+	path = third_party/capstone
 	url = https://github.com/idc/capstone
 [submodule "xenia_base"]
-	path = xenia_base
+	path = third_party/xenia_base
 	url = https://github.com/idc/xenia_base
 [submodule "xbyak"]
-	path = xbyak
+	path = third_party/xbyak
 	url = https://github.com/herumi/xbyak.git

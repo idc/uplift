@@ -4,7 +4,7 @@
 #include <xenia/base/socket.h>
 #include <xenia/base/string.h>
 
-#include "../../xbyak/xbyak/xbyak_util.h"
+#include <xbyak/xbyak_util.h>
 
 #include "loader.hpp"
 #include "linkable.hpp"

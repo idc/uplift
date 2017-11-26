@@ -5,7 +5,7 @@
 
 #include <xenia/base/exception_handler.h>
 
-#include "../../xbyak/xbyak/xbyak_util.h"
+#include <xbyak/xbyak_util.h>
 
 #include "linkable.hpp"
 #include "object_table.hpp"

@@ -13,10 +13,10 @@
 
 #include <llvm/BinaryFormat/ELF.h>
 
-#include "../../capstone/include/capstone.h"
-#include "../../capstone/include/x86.h"
+#include <capstone/include/capstone.h>
+#include <capstone/include/x86.h>
 
-#include "../../xbyak/xbyak/xbyak.h"
+#include <xbyak/xbyak.h>
 
 #include "loader.hpp"
 #include "linkable.hpp"

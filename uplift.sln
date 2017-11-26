@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "xenia_base", "xenia_base\xenia_base.vcxproj", "{122BAA7B-A7D2-4E0D-812C-EDF7733B367A}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "xenia_base", "third_party\xenia_base\xenia_base.vcxproj", "{122BAA7B-A7D2-4E0D-812C-EDF7733B367A}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "uplift", "uplift\uplift.vcxproj", "{E534A9E0-01A2-4C94-A1DF-6F425B8073B4}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "capstone_static", "capstone\msvc\capstone_static\capstone_static.vcxproj", "{5B01D900-2359-44CA-9914-6B0C6AFB7BE7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "capstone_static", "third_party\capstone\msvc\capstone_static\capstone_static.vcxproj", "{5B01D900-2359-44CA-9914-6B0C6AFB7BE7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
