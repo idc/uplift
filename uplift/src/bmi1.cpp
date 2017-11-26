@@ -16,22 +16,22 @@ uint64_t read_operand(cs_x86_op op, xe::X64Context* thread_context)
   case X86_REG_R ## x ## D: return (uint32_t)thread_context->r ## x;
     switch (op.reg)
     {
-      CASE_R(AX, ax)
-        CASE_R(CX, cx)
-        CASE_R(DX, dx)
-        CASE_R(BX, bx)
-        CASE_R(SP, sp)
-        CASE_R(BP, bp)
-        CASE_R(SI, si)
-        CASE_R(DI, di)
-        CASE_N(8)
-        CASE_N(9)
-        CASE_N(10)
-        CASE_N(11)
-        CASE_N(12)
-        CASE_N(13)
-        CASE_N(14)
-        CASE_N(15)
+      CASE_R(AX, ax);
+      CASE_R(CX, cx);
+      CASE_R(DX, dx);
+      CASE_R(BX, bx);
+      CASE_R(SP, sp);
+      CASE_R(BP, bp);
+      CASE_R(SI, si);
+      CASE_R(DI, di);
+      CASE_N(8);
+      CASE_N(9);
+      CASE_N(10);
+      CASE_N(11);
+      CASE_N(12);
+      CASE_N(13);
+      CASE_N(14);
+      CASE_N(15);
     }
 #undef CASE_N
 #undef CASE_R
@@ -70,22 +70,22 @@ void write_operand(cs_x86_op op, xe::X64Context* thread_context, uint64_t value)
   {
     switch (op.reg)
     {
-      CASE_R(AX, ax)
-        CASE_R(CX, cx)
-        CASE_R(DX, dx)
-        CASE_R(BX, bx)
-        CASE_R(SP, sp)
-        CASE_R(BP, bp)
-        CASE_R(SI, si)
-        CASE_R(DI, di)
-        CASE_N(8)
-        CASE_N(9)
-        CASE_N(10)
-        CASE_N(11)
-        CASE_N(12)
-        CASE_N(13)
-        CASE_N(14)
-        CASE_N(15)
+      CASE_R(AX, ax);
+      CASE_R(CX, cx);
+      CASE_R(DX, dx);
+      CASE_R(BX, bx);
+      CASE_R(SP, sp);
+      CASE_R(BP, bp);
+      CASE_R(SI, si);
+      CASE_R(DI, di);
+      CASE_N(8);
+      CASE_N(9);
+      CASE_N(10);
+      CASE_N(11);
+      CASE_N(12);
+      CASE_N(13);
+      CASE_N(14);
+      CASE_N(15);
     }
   }
   assert_always();
@@ -104,6 +104,8 @@ void write_operand(cs_x86_op op, xe::X64Context* thread_context, uint64_t value)
 
 void simulate_andn(cs_insn* insn, xe::X64Context* thread_context)
 {
+  assert_true(insn->detail->x86.op_count == 3);
+
   auto src1 = read_operand(insn->detail->x86.operands[1], thread_context);
   auto src2 = read_operand(insn->detail->x86.operands[2], thread_context);
   auto result = (~src1) & src2;
@@ -135,6 +137,8 @@ void simulate_andn(cs_insn* insn, xe::X64Context* thread_context)
 
 void simulate_bextr(cs_insn* insn, xe::X64Context* thread_context)
 {
+  assert_true(insn->detail->x86.op_count == 3);
+
   auto src1 = read_operand(insn->detail->x86.operands[1], thread_context);
   auto src2 = read_operand(insn->detail->x86.operands[2], thread_context);
 
@@ -168,6 +172,8 @@ void simulate_bextr(cs_insn* insn, xe::X64Context* thread_context)
 
 void simulate_blsi(cs_insn* insn, xe::X64Context* thread_context)
 {
+  assert_true(insn->detail->x86.op_count == 2);
+
   auto src1 = read_operand(insn->detail->x86.operands[1], thread_context);
   auto result = (-src1) & src1;
   write_operand(insn->detail->x86.operands[0], thread_context, result);
