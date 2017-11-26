@@ -526,9 +526,9 @@ struct dynlib_info_ex
   void* fini_address;
   uint64_t unknown_138;
   uint64_t unknown_140;
-  void* u6474E550_address;
+  void* eh_frame_address;
   void* frame_info_1;
-  uint32_t u6474E550_memory_size;
+  uint32_t eh_frame_memory_size;
   uint32_t frame_info_2;
   uint64_t unknown_160;
   uint32_t unknown_168;
@@ -578,8 +578,8 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t id, void* arg2, void* vinfo)
   ex.tls_align = static_cast<uint32_t>(program_info.tls_align);
   ex.init_address = !dynamic_info.init_offset ? nullptr : &base_address[dynamic_info.init_offset];
   ex.fini_address = !dynamic_info.fini_offset ? nullptr : &base_address[dynamic_info.fini_offset];
-  ex.u6474E550_address = !program_info.u6474E550_address ? nullptr : &base_address[program_info.u6474E550_address];
-  ex.u6474E550_memory_size = static_cast<uint32_t>(program_info.u6474E550_memory_size);
+  ex.eh_frame_address = !program_info.eh_frame_address ? nullptr : &base_address[program_info.eh_frame_address];
+  ex.eh_frame_memory_size = static_cast<uint32_t>(program_info.eh_frame_memory_size);
   ex.unknown_1A0 = 1;
   std::memcpy(vinfo, &ex, sizeof(dynlib_info_ex));
   return true;

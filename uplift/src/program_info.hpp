@@ -23,8 +23,8 @@ namespace uplift
     llvm::ELF::Elf64_Xword sce_dynlibdata_file_size;
     llvm::ELF::Elf64_Addr sce_proc_param_address;
     llvm::ELF::Elf64_Xword sce_proc_param_file_size;
-    llvm::ELF::Elf64_Addr u6474E550_address;
-    llvm::ELF::Elf64_Xword u6474E550_memory_size;
+    llvm::ELF::Elf64_Addr eh_frame_address;
+    llvm::ELF::Elf64_Xword eh_frame_memory_size;
     llvm::ELF::Elf64_Half sce_comment_index;
     llvm::ELF::Elf64_Off sce_comment_file_offset;
     llvm::ELF::Elf64_Xword sce_comment_file_size;

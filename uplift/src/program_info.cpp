@@ -112,8 +112,8 @@ bool uplift::get_program_info(elf::Elf64_Phdr* phdr, elf::Elf64_Half count, Prog
           return false;
         }
 
-        info.u6474E550_address = phdr->p_vaddr;
-        info.u6474E550_memory_size = phdr->p_memsz;
+        info.eh_frame_address = phdr->p_vaddr;
+        info.eh_frame_memory_size = phdr->p_memsz;
         break;
       }
 
