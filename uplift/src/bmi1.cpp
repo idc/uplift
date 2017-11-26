@@ -4,6 +4,39 @@
 
 // https://www.youtube.com/watch?v=pc0mxOXbWIU
 
+uint64_t read_register(x86_op_type reg, xe::X64Context* thread_context)
+{
+#define CASE_R(x,y) \
+  case X86_REG_R ## x: return thread_context->r ## y; \
+  case X86_REG_E ## x: return (uint32_t)thread_context->r ## y;
+#define CASE_N(x) \
+  case X86_REG_R ## x: return thread_context->r ## x; \
+  case X86_REG_R ## x ## D: return (uint32_t)thread_context->r ## x;
+  switch (reg)
+  {
+    CASE_R(AX, ax);
+    CASE_R(CX, cx);
+    CASE_R(DX, dx);
+    CASE_R(BX, bx);
+    CASE_R(SP, sp);
+    CASE_R(BP, bp);
+    CASE_R(SI, si);
+    CASE_R(DI, di);
+    CASE_N(8);
+    CASE_N(9);
+    CASE_N(10);
+    CASE_N(11);
+    CASE_N(12);
+    CASE_N(13);
+    CASE_N(14);
+    CASE_N(15);
+  }
+#undef CASE_N
+#undef CASE_R
+  assert_always();
+  return 0;
+}
+
 uint64_t read_operand(cs_x86_op op, xe::X64Context* thread_context)
 {
   if (op.type == X86_OP_REG)
@@ -35,6 +68,32 @@ uint64_t read_operand(cs_x86_op op, xe::X64Context* thread_context)
     }
 #undef CASE_N
 #undef CASE_R
+  }
+  else if (op.type == X86_OP_MEM)
+  {
+    if (op.mem.segment == X86_REG_INVALID)
+    {
+      auto address = read_register((x86_op_type)op.mem.base, thread_context);
+      address += static_cast<uint64_t>(op.mem.disp);
+      if (op.mem.index != X86_REG_INVALID)
+      {
+        auto index_value = read_register((x86_op_type)op.mem.index, thread_context);
+        index_value *= op.mem.scale;
+        address += static_cast<uint64_t>(index_value);
+      }
+      if (op.size == 8)
+      {
+        return *reinterpret_cast<uint64_t*>(address);
+      }
+      else if (op.size == 4)
+      {
+        return *reinterpret_cast<uint32_t*>(address);
+      }
+    }
+    else
+    {
+      assert_always();
+    }
   }
   assert_always();
   return 0;
