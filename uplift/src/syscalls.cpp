@@ -10,11 +10,23 @@
 #include "objects/_objects.hpp"
 #include "devices/_devices.hpp"
 
+// workaround until Xbyak header can be modified to not include Windows headers
+#undef GetMessage
+#undef SetMessage
+
 using namespace uplift;
 using namespace uplift::devices;
 using namespace uplift::objects;
 
 #define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Runtime* runtime, SyscallReturnValue& retval, __VA_ARGS__)
+
+SYSCALL_IMPL(exit, int status)
+{
+  // exit syscall probably needs special handling to jump to .fini/termination code directly
+  assert_always();
+  retval.val = -1;
+  return false;
+}
 
 SYSCALL_IMPL(write, uint32_t fd, const void* buf, size_t nbytes)
 {
@@ -118,7 +130,15 @@ SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
     return true;
   }
 
-  //assert_always();
+  if (!strcmp(path, "/app0/sce_discmap.plt") ||
+      !strcmp(path, "/app0/sce_discmap_patch.plt"))
+  {
+    // short circuit some files not cared about yet
+    retval.val = 16; // EBUSY
+    return false;
+  }
+
+  assert_always();
   retval.val = 16; // EBUSY
   return false;
 }
@@ -514,6 +534,13 @@ SYSCALL_IMPL(evf_create, const char* name, uint32_t arg2, uint64_t arg3)
   return true;
 }
 
+SYSCALL_IMPL(evf_delete, uint32_t handle)
+{
+  printf("evf_delete: %x\n", handle);
+  retval.val = 0;
+  return true;
+}
+
 SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
 {
   printf("namedobj_create: %s %p %x\n", name, arg2, arg3);
@@ -524,6 +551,18 @@ SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
 SYSCALL_IMPL(namedobj_delete)
 {
   return true;
+}
+
+SYSCALL_IMPL(dmem_container, uint32_t arg1)
+{
+  if (arg1 == -1)
+  {
+    return true;
+  }
+
+  assert_always();
+  retval.val = -1;
+  return false;
 }
 
 SYSCALL_IMPL(get_authinfo, void* arg1, void* arg2)
@@ -712,7 +751,13 @@ SYSCALL_IMPL(dynlib_process_needed_and_relocate)
 
 SYSCALL_IMPL(mdbg_service, uint32_t op, void* arg2, void* arg3)
 {
-  return true;
+  if (op == 1)
+  {
+    return true;
+  }
+
+  retval.val = -1;
+  return false;
 }
 
 SYSCALL_IMPL(randomized_path, const char* set_path, char* path, size_t* path_length)
@@ -855,14 +900,33 @@ SYSCALL_IMPL(get_proc_type_info, void* vtype_info)
 
 enum class ipmimgr_op : uint32_t
 {
-  Create = 2,
-  Destroy = 3,
+  CreateServer = 0,
+  DestroyServer = 1,
+  CreateClient = 2,
+  DestroyClient = 3,
+  CreateSession = 4,
+  DestroySession = 5,
   Trace = 16,
-  __u529 = 529,
-  __u530 = 530,
+  ReceivePacket = 513,
+  __u514 = 514,
+  __u529 = 529, // connect related
+  __u530 = 530, // connect related
+  __u531 = 531, // connect related
+  __u546 = 546,
+  __u547 = 547,
+  __u561 = 561,
+  __u563 = 563,
+  InvokeAsyncMethod = 577,
+  TryGetResult = 579,
+  GetMessage_ = 593,
+  TryGetMessage = 594,
+  SendMessage_ = 595,
+  TrySendMessage = 596,
+  EmptyMessageQueue = 597,
+  __u609 = 609,
 };
 
-SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, uint8_t* data_buffer, size_t data_size, uint64_t cookie)
+SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* data_buffer, size_t data_size, uint64_t cookie)
 {
   printf("ipmimgr_call: %u, %u, %p, %p, %I64x, %I64x\n", op, subop, error, data_buffer, data_size, cookie);
 
@@ -874,20 +938,19 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, uint8_t
 
   switch (static_cast<ipmimgr_op>(op))
   {
-    case ipmimgr_op::Create:
+    case ipmimgr_op::CreateClient:
     {
       struct op_arg_3
       {
         uint8_t unknown_0[336];
       };
-
       struct op_args
       {
         void* arg1;
         const char* arg2;
         op_arg_3* arg3;
       };
-      auto args = reinterpret_cast<op_args*>(data_buffer);
+      auto args = static_cast<op_args*>(data_buffer);
 
       printf("ipmimgr_call create: %s\n", args->arg2);
 
@@ -896,7 +959,7 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, uint8_t
       return true;
     }
 
-    case ipmimgr_op::Destroy:
+    case ipmimgr_op::DestroyClient:
     {
       *error = 0;
       retval.val = 0;
@@ -917,7 +980,27 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, uint8_t
     }
 
     case ipmimgr_op::__u529:
+    {
+      struct op_arg_1
+      {
+        uint8_t unknown_0[352];
+      };
+      struct op_args
+      {
+        op_arg_1* arg1;
+        uint64_t arg2;
+        size_t arg1_size;
+        uint64_t arg4;
+      };
+      auto args = static_cast<op_args*>(data_buffer);
+
+      *error = 0;
+      retval.val = 0;
+      return true;
+    }
+
     case ipmimgr_op::__u530:
+    case ipmimgr_op::__u531:
     {
       *error = -1;
       retval.val = 0;

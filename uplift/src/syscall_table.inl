@@ -1,6 +1,7 @@
 #ifndef SYSCALL
 #define SYSCALL(x,y,...)
 #endif
+SYSCALL(1, exit, int status);
 SYSCALL(4, write, uint32_t fd, const void* buf, size_t nbytes);
 SYSCALL(5, open, const char* path, uint32_t flags, uint32_t mode);
 SYSCALL(6, close, uint32_t fd);
@@ -25,8 +26,10 @@ SYSCALL(477, mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
 SYSCALL(487, cpuset_getaffinity, int32_t level, int32_t which, int32_t id, size_t setsize, uint64_t* mask);
 SYSCALL(532, regmgr_call, uint32_t op, uint32_t id, void* result, void* value, uint64_t type);
 SYSCALL(538, evf_create, const char* name, uint32_t arg2, uint64_t arg3);
+SYSCALL(539, evf_delete, uint32_t handle);
 SYSCALL(557, namedobj_create, const char* name, void* arg2, uint32_t arg3);
 SYSCALL(558, namedobj_delete);
+SYSCALL(586, dmem_container, uint32_t arg1);
 SYSCALL(587, get_authinfo, void* arg1, void* arg2);
 SYSCALL(588, mname, uint8_t* arg1, size_t arg2, const char* name, void* arg4);
 SYSCALL(591, dynlib_dlsym, uint32_t handle, const char* name, void** sym);
@@ -42,4 +45,4 @@ SYSCALL(605, workaround8849);
 SYSCALL(608, dynlib_get_info_ex, uint32_t handle, void* arg2, void* arg3);
 SYSCALL(610, eport_create, /*const char* name,*/ uint32_t pid);
 SYSCALL(612, get_proc_type_info, void* type_info);
-SYSCALL(622, ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, uint8_t* data_buffer, size_t data_size, uint64_t cookie);
+SYSCALL(622, ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* data_buffer, size_t data_size, uint64_t cookie);
