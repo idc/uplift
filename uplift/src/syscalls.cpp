@@ -110,7 +110,7 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
     return true;
   }
 
-  assert_always();
+  //assert_always();
   retval.val = -1;
   return false;
 }
@@ -166,6 +166,23 @@ SYSCALL_IMPL(mprotect, const void* addr, size_t len, int prot)
 {
   printf("mprotect: %p-%p (%I64u) %x\n", addr, &static_cast<const uint8_t*>(addr)[(!len ? 1 : len) - 1], len, prot);
   retval.val = 0;
+  return true;
+}
+
+SYSCALL_IMPL(socket, int domain, int type, int protocol)
+{
+  auto socket = object_ref<Socket>(new Socket(runtime));
+  auto result = socket->Initialize(
+    static_cast<Socket::Domain>(domain),
+    static_cast<Socket::Type>(type),
+    static_cast<Socket::Protocol>(protocol));
+  if (result)
+  {
+    socket->Release();
+    retval.val = result;
+    return false;
+  }
+  retval.val = socket->handle();
   return true;
 }
 
@@ -369,11 +386,36 @@ SYSCALL_IMPL(rtprio_thread, int function, uint64_t lwpid, void* rtp)
 
 SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int flags, int fd, off_t offset)
 {
+  printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%x", addr, len, prot, flags, fd, offset);
+
+  assert_true(fd == -1);
+  assert_true(!(flags & ~(0x2 | 0x10 | 0x1000 | 0x2000)));
+
   auto access = xe::memory::PageAccess::kReadWrite;
   auto allocation_type = xe::memory::AllocationType::kReserveCommit;
-  auto allocation = xe::memory::AllocFixed(0 /*addr*/, len, allocation_type, access);
-  printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%x, RETVAL=%p\n", addr, len, prot, flags, fd, offset, allocation);
-  retval.ptr = allocation ? allocation : (void*)-1;
+
+  auto allocation = xe::memory::AllocFixed(addr, len, allocation_type, access);
+  if (!allocation && !(flags & 0x10))
+  {
+    // not fixed, try allocating again
+    allocation = xe::memory::AllocFixed(nullptr, len, allocation_type, access);
+  }
+
+  if (!allocation)
+  {
+    printf(", FAILURE\n");
+    retval.val = -1;
+    return false;
+  }
+
+  printf(", RETVAL=%p\n", allocation);
+
+  if (flags & 0x1000) // anonymous
+  {
+    std::memset(allocation, 0, len);
+  }
+
+  retval.ptr = allocation;
   return allocation != nullptr;
 }
 
@@ -503,12 +545,68 @@ SYSCALL_IMPL(dynlib_dlsym, uint32_t handle, const char* cname, void** sym)
 SYSCALL_IMPL(dynlib_get_list, uint32_t* handles, size_t max_count, size_t* count)
 {
   auto modules = runtime->object_table()->GetObjectsByType<Module>();
+  std::sort(modules.begin(), modules.end(), [](object_ref<Module> a, object_ref<Module> b) { return a->order() < b->order(); });
   size_t i = 0;
   for (auto it = modules.begin(); i < max_count && it != modules.end(); ++it, ++i)
   {
     *(handles++) = (*it)->handle();
   }
   *count = i;
+  return true;
+}
+
+struct dynlib_info
+{
+  size_t struct_size;
+  char name[256];
+  void* text_address;
+  uint32_t text_size;
+  uint32_t text_flags;
+  void* data_address;
+  int data_size;
+  uint32_t data_flags;
+  uint8_t unknown_128[32];
+  uint32_t unknown_148;
+  uint8_t fingerprint[20];
+};
+
+SYSCALL_IMPL(dynlib_get_info, uint32_t handle, void* vinfo)
+{
+  if (static_cast<dynlib_info*>(vinfo)->struct_size != sizeof(dynlib_info))
+  {
+    retval.val = -1;
+    return false;
+  }
+
+  auto module = runtime->object_table()->LookupObject<Module>(handle).get();
+  if (!module)
+  {
+    retval.val = -1;
+    return false;
+  }
+
+  auto name = xe::to_string(module->name());
+  auto index = name.rfind('.');
+  if (index != std::string::npos)
+  {
+    name = name.substr(0, index);
+  }
+
+  auto base_address = module->base_address();
+  auto program_info = module->program_info();
+  auto dynamic_info = module->dynamic_info();
+
+  dynlib_info info = {};
+  std::strncpy(info.name, name.c_str(), sizeof(info.name));
+  info.struct_size = sizeof(dynlib_info);
+  info.text_address = module->text_address();
+  info.text_size = static_cast<uint32_t>(module->text_size());
+  info.text_flags = 1 | 4; // R+X
+  info.data_address = module->data_address();
+  info.data_size = static_cast<uint32_t>(module->data_size());
+  info.data_flags = 1 | 2; // R+W
+  info.unknown_148 = 2;
+  std::memcpy(vinfo, &info, sizeof(info));
   return true;
 }
 
@@ -565,12 +663,12 @@ SYSCALL_IMPL(dynlib_get_proc_param, void** data_address, size_t* data_size)
 
 SYSCALL_IMPL(dynlib_process_needed_and_relocate)
 {
-  bool success = runtime->LoadNeededObjects() && runtime->RelocateObjects();
+  bool success = runtime->LoadNeededModules() && runtime->SortModules() && runtime->RelocateModules();
   retval.val = success ? 0 : -1;
   return success;
 }
 
-SYSCALL_IMPL(mdbg_service, void* arg1, void* arg2, void* arg3)
+SYSCALL_IMPL(mdbg_service, uint32_t op, void* arg2, void* arg3)
 {
   return true;
 }
@@ -597,12 +695,12 @@ struct dynlib_info_ex
   uint64_t struct_size;
   char name[256];
   uint32_t handle;
-  uint16_t unknown_10C;
+  uint16_t tls_index;
   uint16_t unknown_10E;
   void* tls_address;
   uint32_t tls_file_size;
   uint32_t tls_memory_size;
-  uint32_t unknown_120;
+  uint32_t tls_offset;
   uint32_t tls_align;
   void* init_address;
   void* fini_address;
@@ -612,12 +710,12 @@ struct dynlib_info_ex
   void* eh_frame_data_buffer;
   uint32_t eh_frame_header_size;
   uint32_t eh_frame_data_size;
-  uint64_t unknown_160;
-  uint32_t unknown_168;
-  uint32_t unknown_16C;
-  uint64_t unknown_170;
-  uint32_t unknown_178;
-  uint32_t unknown_17C;
+  void* text_address;
+  uint32_t text_size;
+  uint32_t text_flags;
+  void* data_address;
+  uint32_t data_size;
+  uint32_t data_flags;
   uint8_t unknown_180[32];
   uint32_t unknown_1A0;
   int32_t ref_count;
@@ -630,9 +728,6 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t handle, void* arg2, void* vinfo)
     retval.val = -1;
     return false;
   }
-
-  dynlib_info_ex ex;
-  std::memset(&ex, 0, sizeof(dynlib_info_ex));
 
   auto module = runtime->object_table()->LookupObject<Module>(handle).get();
   if (!module)
@@ -652,22 +747,30 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t handle, void* arg2, void* vinfo)
   auto program_info = module->program_info();
   auto dynamic_info = module->dynamic_info();
 
-  std::strncpy(ex.name, name.c_str(), sizeof(ex.name));
-  ex.handle = module->handle();
-  ex.struct_size = sizeof(dynlib_info_ex);
-  ex.tls_address = !program_info.tls_address ? nullptr : &base_address[program_info.tls_address];
-  ex.tls_file_size = static_cast<uint32_t>(program_info.tls_file_size);
-  ex.tls_memory_size = static_cast<uint32_t>(program_info.tls_memory_size);
-  ex.tls_align = static_cast<uint32_t>(program_info.tls_align);
-  ex.init_address = !dynamic_info.has_init_offset ? nullptr : &base_address[dynamic_info.init_offset];
-  ex.fini_address = !dynamic_info.has_fini_offset ? nullptr : &base_address[dynamic_info.fini_offset];
-  ex.eh_frame_header_buffer = !program_info.eh_frame_address ? nullptr : &base_address[program_info.eh_frame_address];
-  ex.eh_frame_header_size = static_cast<uint32_t>(program_info.eh_frame_memory_size);
-  ex.eh_frame_data_buffer = module->eh_frame_data_buffer();
-  ex.eh_frame_data_size = static_cast<uint32_t>(module->eh_frame_data_size());
-  ex.unknown_1A0 = 1;
-  ex.ref_count = module->pointer_ref_count();
-  std::memcpy(vinfo, &ex, sizeof(dynlib_info_ex));
+  dynlib_info_ex info = {};
+  std::strncpy(info.name, name.c_str(), sizeof(info.name));
+  info.handle = module->handle();
+  info.struct_size = sizeof(dynlib_info_ex);
+  info.tls_index = module->tls_index();
+  info.tls_address = !program_info.tls_address ? nullptr : &base_address[program_info.tls_address];
+  info.tls_file_size = static_cast<uint32_t>(program_info.tls_file_size);
+  info.tls_memory_size = static_cast<uint32_t>(program_info.tls_memory_size);
+  info.tls_align = static_cast<uint32_t>(program_info.tls_align);
+  info.init_address = !dynamic_info.has_init_offset ? nullptr : &base_address[dynamic_info.init_offset];
+  info.fini_address = !dynamic_info.has_fini_offset ? nullptr : &base_address[dynamic_info.fini_offset];
+  info.eh_frame_header_buffer = !program_info.eh_frame_address ? nullptr : &base_address[program_info.eh_frame_address];
+  info.eh_frame_header_size = static_cast<uint32_t>(program_info.eh_frame_memory_size);
+  info.eh_frame_data_buffer = module->eh_frame_data_buffer();
+  info.eh_frame_data_size = static_cast<uint32_t>(module->eh_frame_data_size());
+  info.text_address = module->text_address();
+  info.text_size = static_cast<uint32_t>(module->text_size());
+  info.text_flags = 1 | 4; // R+X
+  info.data_address = module->data_address();
+  info.data_size = static_cast<uint32_t>(module->data_size());
+  info.data_flags = 1 | 2; // R+W
+  info.unknown_1A0 = 2;
+  info.ref_count = module->pointer_ref_count();
+  std::memcpy(vinfo, &info, sizeof(dynlib_info_ex));
   return true;
 }
 

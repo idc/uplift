@@ -9,6 +9,7 @@ namespace uplift
   {
     llvm::ELF::Elf64_Addr load_start;
     llvm::ELF::Elf64_Addr load_end;
+
     bool has_dynamic;
     llvm::ELF::Elf64_Half dynamic_index;
     llvm::ELF::Elf64_Addr dynamic_address;

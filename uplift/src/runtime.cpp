@@ -29,6 +29,7 @@ Runtime::Runtime()
   , syscall_table_()
   , entrypoint_(nullptr)
   , fsbase_(nullptr)
+  , next_tls_index_(0)
   , user_stack_base_(nullptr)
   , user_stack_end_(nullptr)
   , next_namedobj_id_(0)
@@ -193,6 +194,7 @@ void Runtime::Run(std::vector<std::string>& args)
 bool Runtime::ResolveSymbol(const Module* skip, uint32_t symbol_name_hash, const std::string& symbol_name, uint64_t& value)
 {
   auto modules = object_table_.GetObjectsByType<Module>();
+  std::sort(modules.begin(), modules.end(), [](object_ref<Module> a, object_ref<Module> b) { return a->order() < b->order(); });
   for (auto it = modules.begin(); it != modules.end(); ++it)
   {
     if (skip != nullptr && (*it).get() == skip)
@@ -305,7 +307,7 @@ void Runtime::set_fsbase(void* fsbase)
   }
 }
 
-bool Runtime::LoadNeededObjects()
+bool Runtime::LoadNeededModules()
 {
   printf("LOADING NEEDED MODULES\n");
   auto modules = object_table_.GetObjectsByType<Module>();
@@ -318,13 +320,13 @@ bool Runtime::LoadNeededObjects()
 
   while (queue.size() > 0)
   {
-    auto linkable = queue.front();
+    auto module = queue.front();
     queue.pop();
 
-    auto shared_object_names = linkable->dynamic_info().shared_object_names;
+    auto shared_object_names = module->dynamic_info().shared_object_names;
     for (auto it = shared_object_names.begin(); it != shared_object_names.end(); ++it)
     {
-      auto shared_object_name = xe::to_wstring(*it);
+      const auto& shared_object_name = *it;
 
       if (FindModuleByName(shared_object_name))
       {
@@ -345,10 +347,68 @@ bool Runtime::LoadNeededObjects()
   return true;
 }
 
-bool Runtime::RelocateObjects()
+bool Runtime::SortModules()
+{
+  std::vector<std::wstring> names;
+  std::vector<std::wstring> sorted_names;
+
+  std::queue<Module*> queue;
+
+  sorted_names.push_back(L"libkernel.prx");
+  sorted_names.push_back(L"libSceLibcInternal.prx");
+
+  auto modules = object_table_.GetObjectsByType<Module>();
+  for (auto it = modules.begin(); it != modules.end(); ++it)
+  {
+    auto module = (*it).get();
+    queue.push(module);
+    names.push_back(module->name());
+  }
+
+  uint32_t order = 0;
+  while (queue.size() > 0)
+  {
+    auto module = queue.front();
+    queue.pop();
+
+    if (module->name() == L"libkernel.prx" || module->name() == L"libSceLibcInternal.prx")
+    {
+      module->set_order(order++);
+      continue;
+    }
+
+    const auto& shared_object_names = module->dynamic_info().shared_object_names;
+    bool requeue = false;
+    for (auto it = shared_object_names.begin(); requeue == false && it != shared_object_names.end(); ++it)
+    {
+      auto const& shared_object_name = *it;
+      auto const& it2 = std::find(names.begin(), names.end(), shared_object_name);
+      auto const& it3 = std::find(sorted_names.begin(), sorted_names.end(), shared_object_name);
+      if (it2 != names.end() && it3 == sorted_names.end())
+      {
+        requeue = true;
+        break;
+      }
+    }
+
+    if (requeue == true)
+    {
+      queue.push(module);
+      continue;
+    }
+
+    module->set_order(order++);
+    sorted_names.push_back(module->name());
+  }
+
+  return true;
+}
+
+bool Runtime::RelocateModules()
 {
   printf("RELOCATING MODULES\n");
   auto modules = object_table_.GetObjectsByType<Module>();
+  std::sort(modules.begin(), modules.end(), [](object_ref<Module> a, object_ref<Module> b) { return a->order() < b->order(); });
   for (auto it = modules.begin(); it != modules.end(); ++it)
   {
     if (!(*it)->Relocate())

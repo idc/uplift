@@ -57,6 +57,12 @@ uint32_t DipswDevice::IOControl(uint32_t request, void* argp)
       *static_cast<uint64_t*>(argp) = 0;
       return 0;
     }
+
+    case 0x40088809:
+    {
+      *static_cast<uint64_t*>(argp) = 0;
+      return 0;
+    }
   }
   assert_always();
   return 22;

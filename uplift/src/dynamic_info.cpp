@@ -5,6 +5,7 @@
 #include <llvm/BinaryFormat/ELF.h>
 
 #include <xenia/base/assert.h>
+#include <xenia/base/string.h>
 
 #include "dynamic_info.hpp"
 
@@ -288,7 +289,7 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
         {
           return false;
         }
-        info.shared_object_names.push_back(std::string(s));
+        info.shared_object_names.push_back(xe::to_wstring(s));
         break;
       }
 
@@ -316,7 +317,7 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
       case elf::DT_SONAME:
       {
         auto s = string_table.get(entry->d_un.d_val);
-        info.shared_object_name = !s ? "" : std::string(s);
+        info.shared_object_name = !s ? L"" : xe::to_wstring(s);
         break;
       }
 

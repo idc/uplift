@@ -87,11 +87,33 @@ object_ref<Module> Module::Load(Runtime* runtime, const std::wstring& path)
     return nullptr;
   }
 
-  std::vector<elf::Elf64_Phdr> phdrs;
+  uint64_t text_address = 0ull;
+  size_t text_size = 0ull;
+  uint64_t data_address = 0ull;
+  size_t data_size = 0ull;
   for (elf::Elf64_Half i = 0; i < ehdr->e_phnum; ++i)
   {
     auto phdr = &reinterpret_cast<elf::Elf64_Phdr*>(&ehdr[1])[i];
-    phdrs.push_back(*phdr);
+    if (!is_loadable(phdr->p_type) || !phdr->p_memsz)
+    {
+      continue;
+    }
+    if (phdr->p_flags & elf::PF_X)
+    {
+      if (phdr->p_memsz > text_size)
+      {
+        text_address = phdr->p_vaddr;
+        text_size = phdr->p_memsz;
+      }
+    }
+    else
+    {
+      if (phdr->p_memsz > data_size)
+      {
+        data_address = phdr->p_vaddr;
+        data_size = phdr->p_memsz;
+      }
+    }
   }
 
   if (!info.has_dynamic && ehdr->e_type == 0xFE10u)
@@ -268,26 +290,30 @@ object_ref<Module> Module::Load(Runtime* runtime, const std::wstring& path)
 
   // we're good
   {
-    auto linkable = object_ref<Module>(new Module(runtime, path));
-    linkable->type_ = ehdr->e_type;
-    linkable->dynamic_buffer_ = dynamic_buffer;
-    linkable->dynamic_size_ = info.dynamic_file_size;
-    linkable->sce_dynlibdata_buffer_ = sce_dynlibdata_buffer;
-    linkable->sce_dynlibdata_size_ = info.sce_dynlibdata_file_size;
-    linkable->reserved_address_ = reserved_address.ptr;
-    linkable->reserved_prefix_size_ = reserved_before_size;
-    linkable->reserved_suffix_size_ = reserved_after_size;
-    linkable->base_address_ = base_address.ptr;
-    linkable->rip_pointers_ = rip_pointers;
-    linkable->rip_zone_ =
+    auto module = object_ref<Module>(new Module(runtime, path));
+    module->type_ = ehdr->e_type;
+    module->dynamic_buffer_ = dynamic_buffer;
+    module->dynamic_size_ = info.dynamic_file_size;
+    module->sce_dynlibdata_buffer_ = sce_dynlibdata_buffer;
+    module->sce_dynlibdata_size_ = info.sce_dynlibdata_file_size;
+    module->reserved_address_ = reserved_address.ptr;
+    module->reserved_prefix_size_ = reserved_before_size;
+    module->reserved_suffix_size_ = reserved_after_size;
+    module->base_address_ = base_address.ptr;
+    module->text_address_ = &base_address.ptr[text_address];
+    module->text_size_ = text_size;
+    module->data_address_ = &base_address.ptr[data_address];
+    module->data_size_ = data_size;
+    module->rip_pointers_ = rip_pointers;
+    module->rip_zone_ =
     {
       &free_zone[0],
       &free_zone[0],
       &free_zone[sizeof(rip_zone_definition::free_zone)],
     };
-    linkable->sce_proc_param_address_ = info.sce_proc_param_address;
-    linkable->sce_proc_param_size_ = info.sce_proc_param_file_size;
-    linkable->entrypoint_ = ehdr->e_entry;
+    module->sce_proc_param_address_ = info.sce_proc_param_address;
+    module->sce_proc_param_size_ = info.sce_proc_param_file_size;
+    module->entrypoint_ = ehdr->e_entry;
     for (elf::Elf64_Half i = 0; i < ehdr->e_phnum; ++i)
     {
       auto phdr = &reinterpret_cast<elf::Elf64_Phdr*>(&ehdr[1])[i];
@@ -295,31 +321,31 @@ object_ref<Module> Module::Load(Runtime* runtime, const std::wstring& path)
       {
         continue;
       }
-      linkable->load_headers_.push_back(*phdr);
+      module->load_headers_.push_back(*phdr);
     }
-    linkable->program_info_ = info;
-    if (!linkable->ProcessEHFrame())
+    module->program_info_ = info;
+    if (!module->ProcessEHFrame())
     {
       assert_always();
     }
-    if (!linkable->ProcessDynamic())
+    if (!module->ProcessDynamic())
     {
       assert_always();
     }
-    if (!linkable->AnalyzeAndPatchCode())
+    if (!module->AnalyzeAndPatchCode())
     {
       assert_always();
     }
-    linkable->Protect();
+    module->Protect();
 
     xe::debugging::DebugPrint(
       "LOAD MODULE: %S @ %p (%p, %p)\n",
-      linkable->name().c_str(),
+      module->name().c_str(),
       base_address.ptr,
-      !linkable->dynamic_info().has_init_offset ? nullptr : &base_address.ptr[linkable->dynamic_info().init_offset],
-      !linkable->dynamic_info().has_fini_offset ? nullptr : &base_address.ptr[linkable->dynamic_info().fini_offset]);
+      !module->dynamic_info().has_init_offset ? nullptr : &base_address.ptr[module->dynamic_info().init_offset],
+      !module->dynamic_info().has_fini_offset ? nullptr : &base_address.ptr[module->dynamic_info().fini_offset]);
 
-    return linkable;
+    return module;
   }
 
 error:
@@ -351,6 +377,7 @@ Module::Module(Runtime* runtime, const std::wstring& path)
   , runtime_(runtime)
   , path_(path)
   , name_(xe::find_name_from_path(path))
+  , order_(0)
   , type_(0)
   , dynamic_buffer_(nullptr)
   , dynamic_size_(0)
@@ -369,6 +396,7 @@ Module::Module(Runtime* runtime, const std::wstring& path)
   , eh_frame_data_buffer_(nullptr)
   , eh_frame_data_buffer_end_(nullptr)
   , entrypoint_(0)
+  , tls_index_(runtime->next_tls_index())
   , program_info_()
   , dynamic_info_()
 {
@@ -704,6 +732,12 @@ bool Module::AnalyzeAndPatchCode()
   auto program_buffer = &base_address_[phdr.p_vaddr];
   uint8_t* text_buffer;
   size_t text_size;
+  /* This is necessary since both R+X and R sections get merged
+   * together in the resulting ELF file. Capstone really doesn't
+   * like it when you throw data mixed in, so text_address_ and
+   * text_size_ are unreliable. This does signature matching to
+   * figure out where the code starts and ends.
+   */
   if (!get_text_region(program_buffer, phdr.p_filesz, text_buffer, text_size))
   {
     assert_always();
@@ -906,13 +940,24 @@ bool Module::ResolveExternalSymbol(const std::string& local_name, uint64_t& valu
 
   auto name = symbol_name + "#" + library.name + "#" + module.name;
   auto name_hash = elf_hash(name.c_str());
-  if (!runtime_->ResolveSymbol(nullptr, name_hash, name, value))
+
+  bool is_symbolic = dynamic_info_.flags & DynamicFlags::IsSymbolic;
+
+  if (is_symbolic)
+  {
+    if (ResolveSymbol(name_hash, name, value))
+    {
+      return true;
+    }
+  }
+
+  if (!runtime_->ResolveSymbol(is_symbolic ? this : nullptr, name_hash, name, value))
   {
     printf("FAILED TO RESOLVE: %s\n", name.c_str());
 
     name = "M0z6Dr6TNnM#libkernel#libkernel"; // sceKernelReportUnpatchedFunctionCall
     name_hash = elf_hash(name.c_str());
-    if (!runtime_->ResolveSymbol(nullptr, name_hash, name, value))
+    if (!runtime_->ResolveSymbol(is_symbolic ? this : nullptr, name_hash, name, value))
     {
       assert_always();
       return false;

@@ -36,6 +36,8 @@ namespace uplift
       base_path_ = base_path;
     }
 
+    uint16_t next_tls_index() { assert_true(next_tls_index_ < 0xFFFFu); return next_tls_index_++; }
+
     object_ref<Module> FindModuleByName(const std::wstring& name);
     object_ref<Module> LoadModule(const std::wstring& path);
 
@@ -51,19 +53,22 @@ namespace uplift
   private:
     void set_fsbase(void* fsbase);
 
-    bool LoadNeededObjects();
-    bool RelocateObjects();
+    bool LoadNeededModules();
+    bool SortModules();
+    bool RelocateModules();
 
     Xbyak::util::Cpu cpu_;
     std::wstring base_path_;
 
     ObjectTable object_table_;
     Module* boot_module_;
+    std::vector<Module*> sorted_modules_;
 
     SyscallEntry syscall_table_[SyscallTableSize];
 
     void* entrypoint_;
     void* fsbase_;
+    uint16_t next_tls_index_;
     uint8_t* user_stack_base_;
     uint8_t* user_stack_end_;
     uint32_t next_namedobj_id_;

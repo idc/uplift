@@ -56,6 +56,11 @@ namespace uplift
     return a = a | static_cast<uint32_t>(b);
   }
 
+  inline uint32_t operator &(uint32_t a, DynamicFlags b)
+  {
+    return a & static_cast<uint32_t>(b);
+  }
+
   struct DynamicInfo
   {
     llvm::ELF::Elf64_Xword rela_table_offset;
@@ -70,8 +75,8 @@ namespace uplift
     llvm::ELF::Elf64_Xword hash_table_size;
 
     uint32_t flags;
-    std::vector<std::string> shared_object_names;
-    std::string shared_object_name;
+    std::vector<std::wstring> shared_object_names;
+    std::wstring shared_object_name;
     std::vector<ModuleInfo> modules;
     std::vector<LibraryInfo> libraries;
     llvm::ELF::Elf64_Xword pltgot_offset;
