@@ -10,10 +10,6 @@
 #include "objects/_objects.hpp"
 #include "devices/_devices.hpp"
 
-// workaround until Xbyak header can be modified to not include Windows headers
-#undef GetMessage
-#undef SetMessage
-
 using namespace uplift;
 using namespace uplift::devices;
 using namespace uplift::objects;

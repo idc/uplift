@@ -6,4 +6,4 @@
 	url = https://github.com/idc/xenia_base
 [submodule "xbyak"]
 	path = third_party/xbyak
-	url = https://github.com/herumi/xbyak.git
+	url = https://github.com/idc/xbyak.git
