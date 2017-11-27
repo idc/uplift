@@ -357,28 +357,29 @@ bool Runtime::SortModules()
 
   std::queue<Module*> queue;
 
-  sorted_names.push_back(L"libkernel.prx");
-  sorted_names.push_back(L"libSceLibcInternal.prx");
+  uint32_t order = 1;
 
   auto modules = object_table_.GetObjectsByType<Module>();
   for (auto it = modules.begin(); it != modules.end(); ++it)
   {
     auto module = (*it).get();
+    auto name = module->name();
+
+    if (name == L"libkernel.prx" || name == L"libSceLibcInternal.prx")
+    {
+      sorted_names.push_back(name);
+      module->set_order(order++);
+      continue;
+    }
+
     queue.push(module);
     names.push_back(module->name());
   }
 
-  uint32_t order = 0;
   while (queue.size() > 0)
   {
     auto module = queue.front();
     queue.pop();
-
-    if (module->name() == L"libkernel.prx" || module->name() == L"libSceLibcInternal.prx")
-    {
-      module->set_order(order++);
-      continue;
-    }
 
     const auto& shared_object_names = module->dynamic_info().shared_object_names;
     bool requeue = false;
