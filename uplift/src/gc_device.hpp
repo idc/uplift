@@ -10,11 +10,11 @@ namespace uplift
 
 namespace uplift::devices
 {
-  class EportDevice : public objects::File
+  class GCDevice : public objects::File
   {
   public:
-    EportDevice(Runtime* runtime);
-    ~EportDevice();
+    GCDevice(Runtime* runtime);
+    ~GCDevice();
 
     uint32_t Initialize();
     uint32_t Close();

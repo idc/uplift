@@ -18,20 +18,20 @@ namespace uplift
 
     void Reset();
 
-    uint32_t AddHandle(objects::Object* object, HANDLE* out_handle);
-    uint32_t DuplicateHandle(HANDLE handle, HANDLE* out_handle);
-    uint32_t RetainHandle(HANDLE handle);
-    uint32_t ReleaseHandle(HANDLE handle);
-    uint32_t RemoveHandle(HANDLE handle);
+    uint32_t AddHandle(objects::Object* object, ObjectHandle* out_handle);
+    uint32_t DuplicateHandle(ObjectHandle handle, ObjectHandle* out_handle);
+    uint32_t RetainHandle(ObjectHandle handle);
+    uint32_t ReleaseHandle(ObjectHandle handle);
+    uint32_t RemoveHandle(ObjectHandle handle);
 
-    object_ref<objects::Object> LookupObject(HANDLE handle)
+    object_ref<objects::Object> LookupObject(ObjectHandle handle)
     {
       auto object = LookupObject(handle, false);
       return object_ref<objects::Object>(reinterpret_cast<objects::Object*>(object));
     }
 
     template <typename T>
-    object_ref<T> LookupObject(HANDLE handle)
+    object_ref<T> LookupObject(ObjectHandle handle)
     {
       auto object = LookupObject(handle, false);
       if (object)
@@ -41,9 +41,9 @@ namespace uplift
       return object_ref<T>(reinterpret_cast<T*>(object));
     }
 
-    uint32_t AddNameMapping(const std::string& name, HANDLE handle);
+    uint32_t AddNameMapping(const std::string& name, ObjectHandle handle);
     void RemoveNameMapping(const std::string& name);
-    uint32_t GetObjectByName(const std::string& name, HANDLE* out_handle);
+    uint32_t GetObjectByName(const std::string& name, ObjectHandle* out_handle);
     
     template <typename T>
     std::vector<object_ref<T>> GetObjectsByType(objects::Object::Type type)
@@ -72,11 +72,11 @@ namespace uplift
     }
     ObjectTableEntry;
 
-    ObjectTableEntry* LookupTable(HANDLE handle);
-    objects::Object* LookupObject(HANDLE handle, bool already_locked);
+    ObjectTableEntry* LookupTable(ObjectHandle handle);
+    objects::Object* LookupObject(ObjectHandle handle, bool already_locked);
     void GetObjectsByType(objects::Object::Type type, std::vector<object_ref<objects::Object>>* results);
 
-    HANDLE TranslateHandle(HANDLE handle);
+    ObjectHandle TranslateHandle(ObjectHandle handle);
     uint32_t FindFreeSlot(uint32_t* out_slot);
     bool Resize(uint32_t new_capacity);
 
@@ -84,10 +84,10 @@ namespace uplift
     uint32_t table_capacity_ = 0;
     ObjectTableEntry* table_ = nullptr;
     uint32_t last_free_entry_ = 0;
-    std::unordered_map<std::string, HANDLE> name_table_;
+    std::unordered_map<std::string, ObjectHandle> name_table_;
   };
 
   // Generic lookup
   template <>
-  object_ref<objects::Object> ObjectTable::LookupObject<objects::Object>(HANDLE handle);
+  object_ref<objects::Object> ObjectTable::LookupObject<objects::Object>(ObjectHandle handle);
 }

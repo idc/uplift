@@ -99,7 +99,7 @@ bool ObjectTable::Resize(uint32_t new_capacity)
   return true;
 }
 
-uint32_t ObjectTable::AddHandle(Object* object, HANDLE* out_handle)
+uint32_t ObjectTable::AddHandle(Object* object, ObjectHandle* out_handle)
 {
   uint32_t result = 0;
 
@@ -137,7 +137,7 @@ uint32_t ObjectTable::AddHandle(Object* object, HANDLE* out_handle)
   return result;
 }
 
-uint32_t ObjectTable::DuplicateHandle(HANDLE handle, HANDLE* out_handle)
+uint32_t ObjectTable::DuplicateHandle(ObjectHandle handle, ObjectHandle* out_handle)
 {
   uint32_t result = 0;
   handle = TranslateHandle(handle);
@@ -156,7 +156,7 @@ uint32_t ObjectTable::DuplicateHandle(HANDLE handle, HANDLE* out_handle)
   return result;
 }
 
-uint32_t ObjectTable::RetainHandle(HANDLE handle)
+uint32_t ObjectTable::RetainHandle(ObjectHandle handle)
 {
   auto global_lock = global_critical_region_.Acquire();
 
@@ -170,7 +170,7 @@ uint32_t ObjectTable::RetainHandle(HANDLE handle)
   return 0;
 }
 
-uint32_t ObjectTable::ReleaseHandle(HANDLE handle)
+uint32_t ObjectTable::ReleaseHandle(ObjectHandle handle)
 {
   auto global_lock = global_critical_region_.Acquire();
 
@@ -189,7 +189,7 @@ uint32_t ObjectTable::ReleaseHandle(HANDLE handle)
   return 0;
 }
 
-uint32_t ObjectTable::RemoveHandle(HANDLE handle)
+uint32_t ObjectTable::RemoveHandle(ObjectHandle handle)
 {
   uint32_t result = 0;
 
@@ -259,7 +259,7 @@ void ObjectTable::PurgeAllObjects()
   }
 }
 
-ObjectTable::ObjectTableEntry* ObjectTable::LookupTable(HANDLE handle)
+ObjectTable::ObjectTableEntry* ObjectTable::LookupTable(ObjectHandle handle)
 {
   handle = TranslateHandle(handle);
   if (!handle)
@@ -281,14 +281,14 @@ ObjectTable::ObjectTableEntry* ObjectTable::LookupTable(HANDLE handle)
 
 // Generic lookup
 template <>
-object_ref<Object> ObjectTable::LookupObject<Object>(HANDLE handle)
+object_ref<Object> ObjectTable::LookupObject<Object>(ObjectHandle handle)
 {
   auto object = ObjectTable::LookupObject(handle, false);
   auto result = object_ref<Object>(reinterpret_cast<Object*>(object));
   return result;
 }
 
-Object* ObjectTable::LookupObject(HANDLE handle, bool already_locked)
+Object* ObjectTable::LookupObject(ObjectHandle handle, bool already_locked)
 {
   handle = TranslateHandle(handle);
   if (!handle)
@@ -345,12 +345,12 @@ void ObjectTable::GetObjectsByType(Object::Type type, std::vector<object_ref<Obj
   }
 }
 
-HANDLE ObjectTable::TranslateHandle(HANDLE handle)
+ObjectHandle ObjectTable::TranslateHandle(ObjectHandle handle)
 {
   return handle;
 }
 
-uint32_t ObjectTable::AddNameMapping(const std::string& name, HANDLE handle)
+uint32_t ObjectTable::AddNameMapping(const std::string& name, ObjectHandle handle)
 {
   // Names are case-insensitive.
   std::string lower_name = name;
@@ -379,7 +379,7 @@ void ObjectTable::RemoveNameMapping(const std::string& name)
   }
 }
 
-uint32_t ObjectTable::GetObjectByName(const std::string& name, HANDLE* out_handle)
+uint32_t ObjectTable::GetObjectByName(const std::string& name, ObjectHandle* out_handle)
 {
   // Names are case-insensitive.
   std::string lower_name = name;
@@ -389,7 +389,7 @@ uint32_t ObjectTable::GetObjectByName(const std::string& name, HANDLE* out_handl
   auto it = name_table_.find(lower_name);
   if (it == name_table_.end()) 
   {
-    *out_handle = (HANDLE)-1;
+    *out_handle = (ObjectHandle)-1;
     return 9;
   }
   *out_handle = it->second;

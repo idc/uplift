@@ -52,3 +52,9 @@ uint32_t NotificationDevice::IOControl(uint32_t request, void* argp)
   assert_always();
   return 19;
 }
+
+uint32_t NotificationDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+{
+  assert_always();
+  return 19;
+}

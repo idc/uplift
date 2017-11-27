@@ -56,6 +56,9 @@
     </ClInclude>
     <ClInclude Include="src\module.hpp" />
     <ClInclude Include="src\runtime.hpp" />
+    <ClInclude Include="src\gc_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -98,6 +101,9 @@
     </ClCompile>
     <ClCompile Include="src\module.cpp" />
     <ClCompile Include="src\runtime.cpp" />
+    <ClCompile Include="src\gc_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\syscall_table.inl" />

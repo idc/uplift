@@ -7,7 +7,7 @@ namespace uplift
 {
   class Runtime;
 
-  typedef uint32_t HANDLE;
+  typedef uint32_t ObjectHandle;
 
   template <typename T>
   class object_ref;
@@ -35,10 +35,10 @@ namespace uplift::objects
     Runtime* runtime() const { return runtime_; }
     Type type() const { return type_; }
 
-    int handle() const { return handles_[0]; }
+    uint32_t handle() const { return handles_[0]; }
 
-    std::vector<HANDLE> handles() const { return handles_; }
-    std::vector<HANDLE>& handles() { return handles_; }
+    std::vector<ObjectHandle> handles() const { return handles_; }
+    std::vector<ObjectHandle>& handles() { return handles_; }
 
     const std::string& name() const { return name_; }
 
@@ -55,7 +55,7 @@ namespace uplift::objects
     std::atomic<int32_t> pointer_ref_count_;
 
     Type type_;
-    std::vector<HANDLE> handles_;
+    std::vector<ObjectHandle> handles_;
     std::string name_;
   };
 }

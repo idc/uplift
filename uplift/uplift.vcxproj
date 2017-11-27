@@ -97,6 +97,7 @@
     <ClInclude Include="src\dipsw_device.hpp" />
     <ClInclude Include="src\dynamic_info.hpp" />
     <ClInclude Include="src\eport_device.hpp" />
+    <ClInclude Include="src\gc_device.hpp" />
     <ClInclude Include="src\helpers.hpp" />
     <ClInclude Include="src\kfile.hpp" />
     <ClInclude Include="src\kobject.hpp" />
@@ -121,6 +122,7 @@
     <ClCompile Include="src\dipsw_device.cpp" />
     <ClCompile Include="src\dynamic_info.cpp" />
     <ClCompile Include="src\eport_device.cpp" />
+    <ClCompile Include="src\gc_device.cpp" />
     <ClCompile Include="src\helpers.cpp" />
     <ClCompile Include="src\kfile.cpp" />
     <ClCompile Include="src\kobject.cpp" />

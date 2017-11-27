@@ -13,6 +13,7 @@
 #include "deci_tty_device.hpp"
 #include "dipsw_device.hpp"
 #include "eport_device.hpp"
+#include "gc_device.hpp"
 #include "notification_device.hpp"
 
 using namespace uplift;
@@ -35,7 +36,7 @@ SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
   }
   else
   {
-    auto object = runtime->object_table()->LookupObject<File>((HANDLE)fd).get();
+    auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
     if (object)
     {
       size_t written;
@@ -97,6 +98,18 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
     retval.val = device->handle();
     return true;
   }
+  else if (path == "/dev/gc")
+  {
+    auto device = object_ref<GCDevice>(new GCDevice(runtime)).get();
+    auto result = device->Initialize();
+    if (result)
+    {
+      retval.val = result;
+      return false;
+    }
+    retval.val = device->handle();
+    return true;
+  }
   else if (path == "/dev/notification0" || path == "/dev/notification1")
   {
     auto device = object_ref<NotificationDevice>(new NotificationDevice(runtime));
@@ -117,7 +130,7 @@ SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
 
 SYSCALL_IMPL(close, int fd)
 {
-  auto object = runtime->object_table()->LookupObject<File>((HANDLE)fd).get();
+  auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
   if (object)
   {
     object->Close();
@@ -143,7 +156,7 @@ SYSCALL_IMPL(ioctl, int fd, uint32_t request, void* argp)
   printf("ioctl(%d): [%x] inout=%s, group=%c, num=%u, len=%u\n",
          fd, request, label, (request >> 8) & 0xFFu, request & 0xFFu, (request >> 16) & 0x1FFFu);
 
-  auto object = runtime->object_table()->LookupObject<File>((HANDLE)fd).get();
+  auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
   if (object)
   {
     retval.val = object->IOControl(request, argp);
@@ -388,23 +401,44 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int flags, int fd, off_t of
 {
   printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%x", addr, len, prot, flags, fd, offset);
 
-  assert_true(fd == -1);
-  assert_true(!(flags & ~(0x2 | 0x10 | 0x1000 | 0x2000)));
+  assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x1000 | 0x2000)));
 
-  auto access = xe::memory::PageAccess::kReadWrite;
-  auto allocation_type = xe::memory::AllocationType::kReserveCommit;
-
-  auto allocation = xe::memory::AllocFixed(addr, len, allocation_type, access);
-  if (!allocation && !(flags & 0x10))
+  void* allocation = nullptr;
+  uint32_t result = 0;
+  if (fd != -1)
   {
-    // not fixed, try allocating again
-    allocation = xe::memory::AllocFixed(nullptr, len, allocation_type, access);
+    auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
+    if (!object)
+    {
+      result = 9;
+    }
+    else
+    {
+      result = object->MMap(addr, len, prot, flags, offset, allocation);
+    }
+  }
+  else
+  {
+    auto access = xe::memory::PageAccess::kReadWrite;
+    auto allocation_type = xe::memory::AllocationType::kReserveCommit;
+
+    result = 0;
+    allocation = xe::memory::AllocFixed(addr, len, allocation_type, access);
+    if (!allocation && !(flags & 0x10))
+    {
+      // not fixed, try allocating again
+      allocation = xe::memory::AllocFixed(nullptr, len, allocation_type, access);
+      if (!allocation)
+      {
+        result = 12;
+      }
+    }
   }
 
-  if (!allocation)
+  if (result)
   {
     printf(", FAILURE\n");
-    retval.val = -1;
+    retval.val = result;
     return false;
   }
 
@@ -416,7 +450,7 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int flags, int fd, off_t of
   }
 
   retval.ptr = allocation;
-  return allocation != nullptr;
+  return true;
 }
 
 struct nonsys_int

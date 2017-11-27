@@ -43,3 +43,9 @@ uint32_t ConsoleDevice::IOControl(uint32_t request, void* argp)
   assert_always();
   return 19;
 }
+
+uint32_t ConsoleDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+{
+  assert_always();
+  return 19;
+}
