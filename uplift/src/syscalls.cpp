@@ -288,6 +288,18 @@ SYSCALL_IMPL(sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, c
       *oldlenp = 8;
       return true;
     }
+    else if (name == "vm.ps4dev.vm1.cpu.pt_total" ||
+             name == "vm.ps4dev.vm1.cpu.pt_available" ||
+             name == "vm.ps4dev.vm1.gpu.pt_total" ||
+             name == "vm.ps4dev.vm1.gpu.pt_available" ||
+             name == "vm.ps4dev.trcmem_total" ||
+             name == "vm.ps4dev.trcmem_avail")
+    {
+      // devkit, testkit?
+      // claim they don't exist
+      retval.val = 2; // ENOENT
+      return false;
+    }
 
     assert_always();
     return false;
