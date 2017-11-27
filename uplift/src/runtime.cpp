@@ -26,6 +26,7 @@ Runtime::Runtime()
   , base_path_()
   , object_table_()
   , boot_module_(nullptr)
+  , progname_()
   , syscall_table_()
   , entrypoint_(nullptr)
   , fsbase_(nullptr)
@@ -168,6 +169,8 @@ void Runtime::Run(std::vector<std::string>& args)
   EntrypointTrampolineGenerator trampoline(entrypoint_);
   auto func = trampoline.getCode<void*(*)(void*)>();
 
+  progname_ = xe::to_string(boot_module_->name());
+
   union stack_entry
   {
     const void* ptr;
@@ -176,7 +179,7 @@ void Runtime::Run(std::vector<std::string>& args)
   stack[128];
   stack[0].val = 1 + args.size(); // argc
   auto s = reinterpret_cast<stack_entry*>(&stack[1]);
-  (*s++).ptr = boot_module_->name().c_str();
+  (*s++).ptr = progname_.c_str();
   for (auto it = args.begin(); it != args.end(); ++it)
   {
     (*s++).ptr = (*it).c_str();

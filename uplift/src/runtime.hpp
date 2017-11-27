@@ -64,6 +64,8 @@ namespace uplift
     Module* boot_module_;
     std::vector<Module*> sorted_modules_;
 
+    std::string progname_;
+
     SyscallEntry syscall_table_[SyscallTableSize];
 
     void* entrypoint_;
