@@ -1,14 +1,13 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "kobject.hpp"
+#include "../runtime.hpp"
 #include "gc_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
 GCDevice::GCDevice(Runtime* runtime)
-  : File(runtime)
+  : Device(runtime)
 {
 }
 
@@ -16,7 +15,7 @@ GCDevice::~GCDevice()
 {
 }
 
-uint32_t GCDevice::Initialize()
+uint32_t GCDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
   return 0;
 }

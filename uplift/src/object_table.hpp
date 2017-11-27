@@ -6,7 +6,7 @@
 
 #include <xenia/base/mutex.h>
 
-#include "kobject.hpp"
+#include "objects/object.hpp"
 
 namespace uplift
 {

@@ -1,12 +1,6 @@
 #pragma once
 
-#include "kobject.hpp"
-#include "kfile.hpp"
-
-namespace uplift
-{
-  class Loader;
-}
+#include "file.hpp"
 
 namespace uplift::objects
 {
@@ -36,7 +30,7 @@ namespace uplift::objects
     };
 
     Socket(Runtime* runtime);
-    ~Socket();
+    virtual ~Socket();
 
     uint64_t native_handle() const { return native_handle_; }
 

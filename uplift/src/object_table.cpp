@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "object_table.hpp"
-#include "kobject.hpp"
+#include "objects/object.hpp"
 
 using namespace uplift;
 

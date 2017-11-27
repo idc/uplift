@@ -2,8 +2,8 @@
 
 #include <xenia/base/assert.h>
 
-#include "runtime.hpp"
-#include "kobject.hpp"
+#include "../runtime.hpp"
+#include "object.hpp"
 
 using namespace uplift;
 using namespace uplift::objects;

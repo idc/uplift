@@ -1,8 +1,7 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "kobject.hpp"
-#include "kfile.hpp"
+#include "../runtime.hpp"
+#include "file.hpp"
 
 using namespace uplift;
 using namespace uplift::objects;

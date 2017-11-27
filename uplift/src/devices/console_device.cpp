@@ -1,14 +1,13 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "kobject.hpp"
+#include "../runtime.hpp"
 #include "console_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
 ConsoleDevice::ConsoleDevice(Runtime* runtime)
-  : File(runtime)
+  : Device(runtime)
 {
 }
 
@@ -16,7 +15,7 @@ ConsoleDevice::~ConsoleDevice()
 {
 }
 
-uint32_t ConsoleDevice::Initialize()
+uint32_t ConsoleDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
   return 0;
 }

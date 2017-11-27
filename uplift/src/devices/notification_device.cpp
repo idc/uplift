@@ -1,14 +1,13 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "kobject.hpp"
+#include "../runtime.hpp"
 #include "notification_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
 NotificationDevice::NotificationDevice(Runtime* runtime)
-  : File(runtime)
+  : Device(runtime)
 {
 }
 
@@ -16,7 +15,7 @@ NotificationDevice::~NotificationDevice()
 {
 }
 
-uint32_t NotificationDevice::Initialize()
+uint32_t NotificationDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
   return 0;
 }

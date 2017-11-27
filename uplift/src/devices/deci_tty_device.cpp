@@ -1,14 +1,13 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "kobject.hpp"
+#include "../runtime.hpp"
 #include "deci_tty_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
 DeciTTYDevice::DeciTTYDevice(Runtime* runtime)
-  : File(runtime)
+  : Device(runtime)
 {
 }
 
@@ -16,7 +15,7 @@ DeciTTYDevice::~DeciTTYDevice()
 {
 }
 
-uint32_t DeciTTYDevice::Initialize()
+uint32_t DeciTTYDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
   return 0;
 }

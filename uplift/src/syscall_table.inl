@@ -1,17 +1,17 @@
 #ifndef SYSCALL
 #define SYSCALL(x,y,...)
 #endif
-SYSCALL(4, write, int fd, const void* buf, size_t nbytes);
-SYSCALL(5, open, const char* path, int flags, uint64_t mode);
-SYSCALL(6, close, int fd);
+SYSCALL(4, write, uint32_t fd, const void* buf, size_t nbytes);
+SYSCALL(5, open, const char* path, uint32_t flags, uint32_t mode);
+SYSCALL(6, close, uint32_t fd);
 SYSCALL(20, getpid);
-SYSCALL(54, ioctl, int fd, uint32_t request, void* argp);
+SYSCALL(54, ioctl, uint32_t fd, uint32_t request, void* argp);
 SYSCALL(73, munmap, void* addr, size_t len);
 SYSCALL(74, mprotect, const void *addr, size_t len, int prot);
 SYSCALL(97, socket, int domain, int type, int protocol);
 SYSCALL(99, netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t data_size);
 SYSCALL(113, socketex, const char* name, int domain, int type, int protocol);
-SYSCALL(114, socketclose, int fd);
+SYSCALL(114, socketclose, uint32_t fd);
 SYSCALL(116, gettimeofday, void* tp, void* tzp);
 SYSCALL(165, sysarch, int number, void* args);
 SYSCALL(202, sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, const void* newp, size_t newlen);
@@ -19,9 +19,9 @@ SYSCALL(340, sigprocmask);
 SYSCALL(416, sigaction);
 SYSCALL(432, thr_self, void** arg1);
 SYSCALL(454, _umtx_op, void* obj, int op, uint32_t val, void* uaddr1, void* uaddr2);
-SYSCALL(464, thr_set_name, long id, const char* name);
+SYSCALL(464, thr_set_name, uint32_t id, const char* name);
 SYSCALL(466, rtprio_thread, int function, uint64_t lwpid, void* rtp);
-SYSCALL(477, mmap, void* addr, size_t len, int prot, int flags, int fd, off_t offset);
+SYSCALL(477, mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32_t fd, off_t offset);
 SYSCALL(487, cpuset_getaffinity, int32_t level, int32_t which, int32_t id, size_t setsize, uint64_t* mask);
 SYSCALL(532, regmgr_call, uint32_t op, uint32_t id, void* result, void* value, uint64_t type);
 SYSCALL(538, evf_create, const char* name, uint32_t arg2, uint64_t arg3);

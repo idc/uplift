@@ -1,6 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 namespace uplift
@@ -27,6 +29,7 @@ namespace uplift::objects
 
   protected:
     Object(Runtime* runtime, Type type);
+
   public:
     virtual ~Object();
 

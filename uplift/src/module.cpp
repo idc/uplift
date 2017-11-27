@@ -18,9 +18,9 @@
 
 #include <xbyak/xbyak.h>
 
-#include "kobject.hpp"
 #include "runtime.hpp"
 #include "module.hpp"
+#include "objects/object.hpp"
 #include "program_info.hpp"
 #include "dynamic_info.hpp"
 #include "helpers.hpp"

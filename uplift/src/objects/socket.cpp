@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "ksocket.hpp"
+#include "../runtime.hpp"
+#include "socket.hpp"
 
 #ifdef XE_PLATFORM_WIN32
 #include "xenia/base/platform_win.h"

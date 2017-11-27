@@ -1,11 +1,6 @@
 #pragma once
 
-#include "kobject.hpp"
-
-namespace uplift
-{
-  class Loader;
-}
+#include "object.hpp"
 
 namespace uplift::objects
 {
@@ -14,8 +9,11 @@ namespace uplift::objects
   public:
     static const Object::Type ObjectType = Type::File;
 
+  protected:
     File(Runtime* runtime);
-    ~File();
+
+  public:
+    virtual ~File();
 
     virtual uint32_t Close() = 0;
 

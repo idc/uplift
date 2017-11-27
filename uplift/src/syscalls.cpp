@@ -7,14 +7,8 @@
 #include "syscalls.hpp"
 #include "helpers.hpp"
 
-#include "ksocket.hpp"
-
-#include "console_device.hpp"
-#include "deci_tty_device.hpp"
-#include "dipsw_device.hpp"
-#include "eport_device.hpp"
-#include "gc_device.hpp"
-#include "notification_device.hpp"
+#include "objects/_objects.hpp"
+#include "devices/_devices.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
@@ -22,7 +16,7 @@ using namespace uplift::objects;
 
 #define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Runtime* runtime, SyscallReturnValue& retval, __VA_ARGS__)
 
-SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
+SYSCALL_IMPL(write, uint32_t fd, const void* buf, size_t nbytes)
 {
   if (fd == 1 || fd == 2) // stdout, stderr
   {
@@ -56,79 +50,80 @@ SYSCALL_IMPL(write, int fd, const void* buf, size_t nbytes)
   return false;
 }
 
-SYSCALL_IMPL(open, const char* cpath, int flags, uint64_t mode)
+uint32_t open_device(Runtime* runtime, const char* path, uint32_t flags, uint32_t mode, ObjectHandle& handle)
 {
-  printf("open: %s, %x, %I64d\n", cpath, flags, mode);
+  Device* device = nullptr;
+  const char* name = &path[5];
+  if (!strcmp(name, "console"))
+  {
+    device = object_ref<ConsoleDevice>(new ConsoleDevice(runtime)).get();
+  }
+  else if (!strcmp(name, "deci_tty6"))
+  {
+    device = object_ref<DeciTTYDevice>(new DeciTTYDevice(runtime)).get();
+  }
+  else if (!strcmp(name, "/dev/dipsw"))
+  {
+    device = object_ref<DipswDevice>(new DipswDevice(runtime)).get();
+  }
+  else if (!strcmp(name, "gc"))
+  {
+    device = object_ref<GCDevice>(new GCDevice(runtime)).get();
+  }
+  else if (!strncmp(name, "notification", strlen("notification")))
+  {
+    device = object_ref<NotificationDevice>(new NotificationDevice(runtime)).get();
+  }
+  else
+  {
+    device = nullptr;
+  }
 
-  auto path = std::string(cpath);
+  if (!device)
+  {
+    return 2; // ENOENT
+  }
 
-  if (path == "/dev/console")
+  auto result = device->Initialize(std::string(path), flags, mode);
+  if (result)
   {
-    auto device = object_ref<ConsoleDevice>(new ConsoleDevice(runtime)).get();
-    auto result = device->Initialize();
-    if (result)
-    {
-      retval.val = result;
-      return false;
-    }
-    retval.val = device->handle();
-    return true;
+    device->ReleaseHandle();
+    return result;
   }
-  else if (path == "/dev/deci_tty6")
+
+  handle = device->handle();
+  return 0;
+}
+
+SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
+{
+  printf("open: %s, %x, %x\n", path, flags, mode);
+
+  if (path == nullptr)
   {
-    auto device = object_ref<DeciTTYDevice>(new DeciTTYDevice(runtime)).get();
-    auto result = device->Initialize();
-    if (result)
-    {
-      retval.val = result;
-      return false;
-    }
-    retval.val = device->handle();
-    return true;
+    retval.val = 22; // EINVAL
+    return false;
   }
-  else if (path == "/dev/dipsw")
+
+  if (!strncmp(path, "/dev/", 5))
   {
-    auto device = object_ref<DipswDevice>(new DipswDevice(runtime));
-    auto result = device->Initialize();
+    ObjectHandle handle;
+    auto result = open_device(runtime, path, flags, mode, handle);
     if (result)
     {
       retval.val = result;
       return false;
     }
-    retval.val = device->handle();
-    return true;
-  }
-  else if (path == "/dev/gc")
-  {
-    auto device = object_ref<GCDevice>(new GCDevice(runtime)).get();
-    auto result = device->Initialize();
-    if (result)
-    {
-      retval.val = result;
-      return false;
-    }
-    retval.val = device->handle();
-    return true;
-  }
-  else if (path == "/dev/notification0" || path == "/dev/notification1")
-  {
-    auto device = object_ref<NotificationDevice>(new NotificationDevice(runtime));
-    auto result = device->Initialize();
-    if (result)
-    {
-      retval.val = result;
-      return false;
-    }
-    retval.val = device->handle();
+    retval.val = handle;
     return true;
   }
 
   //assert_always();
-  retval.val = -1;
+  retval.val = 16; // EBUSY
   return false;
 }
 
-SYSCALL_IMPL(close, int fd)
+SYSCALL_IMPL(close, uint32_t fd)
 {
   auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
   if (object)
@@ -149,7 +144,7 @@ SYSCALL_IMPL(getpid)
   return true;
 }
 
-SYSCALL_IMPL(ioctl, int fd, uint32_t request, void* argp)
+SYSCALL_IMPL(ioctl, uint32_t fd, uint32_t request, void* argp)
 {
   const char* labels[] = { "!", "void", "out", "void+out", "in", "void+in", "out+in", "void+out+in" };
   auto label = labels[(request >> 29) & 7u];
@@ -234,7 +229,7 @@ SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
   return true;
 }
 
-SYSCALL_IMPL(socketclose, int fd)
+SYSCALL_IMPL(socketclose, uint32_t fd)
 {
   return SYSCALLS::close(runtime, retval, fd);
 }
@@ -386,7 +381,7 @@ SYSCALL_IMPL(_umtx_op, void* obj, int op, uint32_t val, void* uaddr1, void* uadd
   return true;
 }
 
-SYSCALL_IMPL(thr_set_name, long id, const char* name)
+SYSCALL_IMPL(thr_set_name, uint32_t id, const char* name)
 {
   printf("thr_set_name: %d=%s\n", id, name);
   return true;
@@ -397,7 +392,7 @@ SYSCALL_IMPL(rtprio_thread, int function, uint64_t lwpid, void* rtp)
   return true;
 }
 
-SYSCALL_IMPL(mmap, void* addr, size_t len, int prot, int flags, int fd, off_t offset)
+SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32_t fd, off_t offset)
 {
   printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%x", addr, len, prot, flags, fd, offset);
 
@@ -819,15 +814,16 @@ SYSCALL_IMPL(eport_create, /*const char* name,*/ uint32_t pid)
     return false;
   }
 
-  auto device = object_ref<EportDevice>(new EportDevice(runtime));
-  auto result = device->Initialize();
-  if (result)
+  auto eport = object_ref<Eport>(new Eport(runtime));
+  uint32_t result = 0; // Init?
+  if (!result)
   {
-    retval.val = 35;
-    return false;
+    retval.val = 0; // intentionally 'leak'? check is need to be returned somehow
+    return true;
   }
-  retval.val = 0;// device->handle();
-  return true; // intentionally 'leak'?
+  eport->ReleaseHandle();
+  retval.val = result;
+  return false;
 }
 
 SYSCALL_IMPL(get_proc_type_info, void* vtype_info)

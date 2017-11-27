@@ -1,22 +1,16 @@
 #pragma once
 
-#include "kobject.hpp"
-#include "kfile.hpp"
-
-namespace uplift
-{
-  class Loader;
-}
+#include "../objects/device.hpp"
 
 namespace uplift::devices
 {
-  class NotificationDevice : public objects::File
+  class ConsoleDevice : public objects::Device
   {
   public:
-    NotificationDevice(Runtime* runtime);
-    ~NotificationDevice();
+    ConsoleDevice(Runtime* runtime);
+    virtual ~ConsoleDevice();
 
-    uint32_t Initialize();
+    uint32_t Initialize(std::string path, uint32_t flags, uint32_t mode);
     uint32_t Close();
 
     uint32_t Read(void* data_buffer, size_t data_size, size_t* read_size);

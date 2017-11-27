@@ -13,11 +13,11 @@
 #include "program_info.hpp"
 #include "dynamic_info.hpp"
 
-#include "kobject.hpp"
+#include "objects/object.hpp"
 
 namespace uplift
 {
-  class Loader;
+  class Runtime;
 
   class Module : public objects::Object
   {

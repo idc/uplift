@@ -234,6 +234,7 @@ void simulate_blsi(cs_insn* insn, xe::X64Context* thread_context)
   assert_true(insn->detail->x86.op_count == 2);
 
   auto src1 = read_operand(insn->detail->x86.operands[1], thread_context);
+#pragma warning(suppress: 4146)
   auto result = (-src1) & src1;
   write_operand(insn->detail->x86.operands[0], thread_context, result);
 

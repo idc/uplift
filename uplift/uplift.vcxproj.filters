@@ -27,37 +27,44 @@
     <ClInclude Include="src\code_generators.hpp" />
     <ClInclude Include="src\rip_zone.hpp" />
     <ClInclude Include="src\rip_pointers.hpp" />
-    <ClInclude Include="src\ksocket.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
-    <ClInclude Include="src\object_table.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
-    <ClInclude Include="src\notification_device.hpp">
-      <Filter>devices</Filter>
-    </ClInclude>
-    <ClInclude Include="src\kobject.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
-    <ClInclude Include="src\dipsw_device.hpp">
-      <Filter>devices</Filter>
-    </ClInclude>
-    <ClInclude Include="src\eport_device.hpp">
-      <Filter>devices</Filter>
-    </ClInclude>
-    <ClInclude Include="src\kfile.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
-    <ClInclude Include="src\console_device.hpp">
-      <Filter>devices</Filter>
-    </ClInclude>
-    <ClInclude Include="src\deci_tty_device.hpp">
-      <Filter>devices</Filter>
-    </ClInclude>
     <ClInclude Include="src\module.hpp" />
     <ClInclude Include="src\runtime.hpp" />
-    <ClInclude Include="src\gc_device.hpp">
+    <ClInclude Include="src\objects\device.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\file.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\object.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\object_table.hpp" />
+    <ClInclude Include="src\devices\console_device.hpp">
       <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\deci_tty_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\dipsw_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\gc_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\notification_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\_devices.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\_objects.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\eport.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\socket.hpp">
+      <Filter>objects</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -72,37 +79,38 @@
     <ClCompile Include="src\syscalls.cpp" />
     <ClCompile Include="src\bmi1.cpp" />
     <ClCompile Include="src\code_generators.cpp" />
-    <ClCompile Include="src\object_table.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ksocket.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
-    <ClCompile Include="src\notification_device.cpp">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\kobject.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
-    <ClCompile Include="src\dipsw_device.cpp">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\eport_device.cpp">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\kfile.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
-    <ClCompile Include="src\console_device.cpp">
-      <Filter>devices</Filter>
-    </ClCompile>
-    <ClCompile Include="src\deci_tty_device.cpp">
-      <Filter>devices</Filter>
-    </ClCompile>
     <ClCompile Include="src\module.cpp" />
     <ClCompile Include="src\runtime.cpp" />
-    <ClCompile Include="src\gc_device.cpp">
+    <ClCompile Include="src\objects\device.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\file.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\object.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\object_table.cpp" />
+    <ClCompile Include="src\devices\console_device.cpp">
       <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\deci_tty_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\dipsw_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\gc_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\notification_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\eport.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\socket.cpp">
+      <Filter>objects</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,14 +1,13 @@
 #include "stdafx.h"
 
-#include "runtime.hpp"
-#include "kobject.hpp"
+#include "../runtime.hpp"
 #include "dipsw_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
 
 DipswDevice::DipswDevice(Runtime* runtime)
-  : File(runtime)
+  : Device(runtime)
 {
 }
 
@@ -16,7 +15,7 @@ DipswDevice::~DipswDevice()
 {
 }
 
-uint32_t DipswDevice::Initialize()
+uint32_t DipswDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
   return 0;
 }
