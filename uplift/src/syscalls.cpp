@@ -435,10 +435,11 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
     {
       // not fixed, try allocating again
       allocation = xe::memory::AllocFixed(nullptr, len, allocation_type, access);
-      if (!allocation)
-      {
-        result = 12;
-      }
+    }
+
+    if (!allocation)
+    {
+      result = 12;
     }
   }
 
