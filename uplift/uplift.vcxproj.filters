@@ -1,22 +1,28 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="stdafx">
-      <UniqueIdentifier>{d04c7808-9b83-4438-b8ee-649dc3c96dbe}</UniqueIdentifier>
-    </Filter>
     <Filter Include="objects">
       <UniqueIdentifier>{53ef6530-3418-4407-bd0c-042da0c7c4f9}</UniqueIdentifier>
     </Filter>
     <Filter Include="devices">
       <UniqueIdentifier>{5c8cbee7-0e08-4d69-89be-e53468c6204a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="sockets">
+      <UniqueIdentifier>{99fbbf67-d45b-40ce-b09b-83a996b72945}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_misc">
+      <UniqueIdentifier>{893afb73-3d82-4e86-b781-f40a255518e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_misc\stdafx">
+      <UniqueIdentifier>{d04c7808-9b83-4438-b8ee-649dc3c96dbe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx\stdafx.h">
-      <Filter>stdafx</Filter>
+      <Filter>_misc\stdafx</Filter>
     </ClInclude>
     <ClInclude Include="src\stdafx\targetver.h">
-      <Filter>stdafx</Filter>
+      <Filter>_misc\stdafx</Filter>
     </ClInclude>
     <ClInclude Include="src\match.hpp" />
     <ClInclude Include="src\helpers.hpp" />
@@ -29,9 +35,6 @@
     <ClInclude Include="src\rip_pointers.hpp" />
     <ClInclude Include="src\module.hpp" />
     <ClInclude Include="src\runtime.hpp" />
-    <ClInclude Include="src\objects\device.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
     <ClInclude Include="src\objects\file.hpp">
       <Filter>objects</Filter>
     </ClInclude>
@@ -63,18 +66,27 @@
     <ClInclude Include="src\objects\eport.hpp">
       <Filter>objects</Filter>
     </ClInclude>
-    <ClInclude Include="src\objects\socket.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
     <ClInclude Include="src\devices\direct_memory_device.hpp">
       <Filter>devices</Filter>
     </ClInclude>
     <ClInclude Include="src\syscall_error_table.hpp" />
     <ClInclude Include="src\syscall_errors.hpp" />
+    <ClInclude Include="src\sockets\internet_socket.hpp">
+      <Filter>sockets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sockets\socket.hpp">
+      <Filter>sockets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sockets\_sockets.hpp">
+      <Filter>sockets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\devices\device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
-      <Filter>stdafx</Filter>
+      <Filter>_misc\stdafx</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\match.cpp" />
@@ -86,9 +98,6 @@
     <ClCompile Include="src\code_generators.cpp" />
     <ClCompile Include="src\module.cpp" />
     <ClCompile Include="src\runtime.cpp" />
-    <ClCompile Include="src\objects\device.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
     <ClCompile Include="src\objects\file.cpp">
       <Filter>objects</Filter>
     </ClCompile>
@@ -114,10 +123,16 @@
     <ClCompile Include="src\objects\eport.cpp">
       <Filter>objects</Filter>
     </ClCompile>
-    <ClCompile Include="src\objects\socket.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
     <ClCompile Include="src\devices\direct_memory_device.cpp">
+      <Filter>devices</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sockets\internet_socket.cpp">
+      <Filter>sockets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sockets\socket.cpp">
+      <Filter>sockets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\device.cpp">
       <Filter>devices</Filter>
     </ClCompile>
   </ItemGroup>

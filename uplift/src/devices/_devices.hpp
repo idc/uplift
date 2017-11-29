@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../objects/device.hpp"
+#include "device.hpp"
 #include "console_device.hpp"
 #include "deci_tty_device.hpp"
 #include "direct_memory_device.hpp"

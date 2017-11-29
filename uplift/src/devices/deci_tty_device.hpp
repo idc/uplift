@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../objects/device.hpp"
+#include "device.hpp"
 
 namespace uplift::devices
 {
-  class DeciTTYDevice : public objects::Device
+  class DeciTTYDevice : public Device
   {
   public:
     DeciTTYDevice(Runtime* runtime);

@@ -10,11 +10,13 @@
 
 #include "objects/_objects.hpp"
 #include "devices/_devices.hpp"
+#include "sockets/_sockets.hpp"
 
 using namespace uplift;
 using namespace uplift::syscall_errors;
 using namespace uplift::devices;
 using namespace uplift::objects;
+using namespace uplift::sockets;
 
 #define SYSCALL_IMPL(x, ...) bool SYSCALLS::x(Runtime* runtime, SyscallReturnValue& retval, __VA_ARGS__)
 
@@ -40,7 +42,7 @@ SYSCALL_IMPL(write, uint32_t fd, const void* buf, size_t nbytes)
   }
   else
   {
-    auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
+    auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
     if (object)
     {
       size_t written;
@@ -147,7 +149,7 @@ SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
 
 SYSCALL_IMPL(close, uint32_t fd)
 {
-  auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
+  auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
   if (object)
   {
     object->Close();
@@ -173,7 +175,7 @@ SYSCALL_IMPL(ioctl, uint32_t fd, uint32_t request, void* argp)
   printf("ioctl(%d): [%x] inout=%s, group=%c, num=%u, len=%u\n",
          fd, request, label, (request >> 8) & 0xFFu, request & 0xFFu, (request >> 16) & 0x1FFFu);
 
-  auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
+  auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
   if (object)
   {
     retval.err = object->IOControl(request, argp);
@@ -199,7 +201,22 @@ SYSCALL_IMPL(mprotect, const void* addr, size_t len, int prot)
 
 SYSCALL_IMPL(socket, int domain, int type, int protocol)
 {
-  auto socket = object_ref<Socket>(new Socket(runtime));
+  object_ref<Socket> socket;
+  switch (static_cast<Socket::Domain>(domain))
+  {
+    case Socket::Domain::IPv4:
+    {
+      socket = object_ref<InternetSocket>(new InternetSocket(runtime));
+      break;
+    }
+
+    default:
+    {
+      retval.err = SCERR::eINVAL;
+      return false;
+    }
+  }
+
   auto result = socket->Initialize(
     static_cast<Socket::Domain>(domain),
     static_cast<Socket::Type>(type),
@@ -212,6 +229,25 @@ SYSCALL_IMPL(socket, int domain, int type, int protocol)
   }
   retval.val = socket->handle();
   return true;
+}
+
+SYSCALL_IMPL(connect, uint32_t s, const void* name, uint32_t namelen)
+{
+  if (namelen > 255)
+  {
+    retval.err = SCERR::eNAMETOOLONG;
+    return false;
+  }
+
+  auto object = runtime->object_table()->LookupObject<Socket>((ObjectHandle)s);
+  if (!object)
+  {
+    retval.err = SCERR::eBADF;
+    return false;
+  }
+
+  retval.err = object->Connect(name, namelen);
+  return IS_SUCCESS(retval.err);
 }
 
 SYSCALL_IMPL(netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t data_size)
@@ -240,25 +276,17 @@ SYSCALL_IMPL(netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t d
 
 SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
 {
-  auto socket = object_ref<Socket>(new Socket(runtime));
-  auto result = socket->Initialize(
-    static_cast<Socket::Domain>(domain),
-    static_cast<Socket::Type>(type),
-    static_cast<Socket::Protocol>(protocol));
-  if (IS_ERROR(result))
+  if (!SYSCALLS::socket(runtime, retval, domain, type, protocol))
   {
-    socket->Release();
-    retval.err = result;
     return false;
   }
-  runtime->object_table()->AddNameMapping(name, socket->handle());
-  retval.val = socket->handle();
+  runtime->object_table()->AddNameMapping(name, retval.val);
   return true;
 }
 
-SYSCALL_IMPL(socketclose, uint32_t fd)
+SYSCALL_IMPL(socketclose, uint32_t s)
 {
-  return SYSCALLS::close(runtime, retval, fd);
+  return SYSCALLS::close(runtime, retval, s);
 }
 
 SYSCALL_IMPL(gettimeofday, void* tp, void* tzp)
@@ -441,7 +469,7 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
   SCERR result = SUCCESS;
   if (fd != -1)
   {
-    auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
+    auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
     if (!object)
     {
       result = SCERR::eBADF;
@@ -544,6 +572,23 @@ SYSCALL_IMPL(evf_delete, uint32_t handle)
   printf("evf_delete: %x\n", handle);
   retval.val = 0;
   return true;
+}
+
+SYSCALL_IMPL(osem_create, const char* arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
+{
+  retval.val = 0xF00DBABE;
+  return true;
+
+  assert_always();
+  return false;
+}
+
+SYSCALL_IMPL(osem_delete)
+{
+  return true;
+
+  assert_always();
+  return false;
 }
 
 SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
@@ -906,6 +951,12 @@ SYSCALL_IMPL(get_proc_type_info, void* vtype_info)
   type_info = { sizeof(type_info), 0, 0 };
   std::memcpy(vtype_info, &type_info, sizeof(type_info));
   retval.val = 0;
+  return true;
+}
+
+SYSCALL_IMPL(thr_get_name, uint32_t id, char* name)
+{
+  snprintf(name, 31, "thread_%u", id);
   return true;
 }
 

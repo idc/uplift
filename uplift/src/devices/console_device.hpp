@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../objects/device.hpp"
+#include "device.hpp"
 
 namespace uplift::devices
 {
-  class ConsoleDevice : public objects::Device
+  class ConsoleDevice : public Device
   {
   public:
     ConsoleDevice(Runtime* runtime);

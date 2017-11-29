@@ -27,7 +27,7 @@ namespace uplift
     object_ref<objects::Object> LookupObject(ObjectHandle handle)
     {
       auto object = LookupObject(handle, false);
-      return object_ref<objects::Object>(reinterpret_cast<objects::Object*>(object));
+      return object_ref<objects::Object>(object);
     }
 
     template <typename T>

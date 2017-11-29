@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../objects/device.hpp"
+#include "device.hpp"
 
 namespace uplift::devices
 {
-  class DirectMemoryDevice : public objects::Device
+  class DirectMemoryDevice : public Device
   {
   public:
     DirectMemoryDevice(Runtime* runtime);
@@ -17,5 +17,11 @@ namespace uplift::devices
     SyscallError Write(const void* data_buffer, size_t data_size, size_t* written_size);
     SyscallError IOControl(uint32_t request, void* argp);
     SyscallError MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation);
+
+  private:
+    std::string path_;
+    uint32_t flags_;
+    uint32_t mode_;
+    bool is_initialized_;
   };
 }

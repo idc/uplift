@@ -6,12 +6,14 @@
 
 #include <xbyak/xbyak_util.h>
 
+#include <WinSock2.h>
+
 #include "runtime.hpp"
 #include "module.hpp"
 
 int main(int argc, char* argv[])
 {
-#ifdef WIN32
+#ifdef XE_PLATFORM_WIN32
   WSADATA wsa_data;
   WSAStartup(MAKEWORD(2, 2), &wsa_data);
 #endif

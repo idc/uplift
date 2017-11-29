@@ -4,10 +4,10 @@
 #include "device.hpp"
 
 using namespace uplift;
-using namespace uplift::objects;
+using namespace uplift::devices;
 
 Device::Device(Runtime* runtime)
-  : File(runtime)
+  : Object(runtime, ObjectType)
 {
 }
 

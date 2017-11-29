@@ -1,11 +1,14 @@
 #pragma once
 
-#include "file.hpp"
+#include "../objects/object.hpp"
 
-namespace uplift::objects
+namespace uplift::devices
 {
-  class Device : public File
+  class Device : public objects::Object
   {
+  public:
+    static const Object::Type ObjectType = Type::Device;
+
   protected:
     Device(Runtime* runtime);
 

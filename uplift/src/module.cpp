@@ -8,8 +8,8 @@
 #include <xenia/base/memory.h>
 #include <xenia/base/string.h>
 
-#define NOMINMAX
-#include <windows.h>
+//#define NOMINMAX
+//#include <windows.h>
 
 #include <llvm/BinaryFormat/ELF.h>
 
@@ -26,6 +26,7 @@
 #include "helpers.hpp"
 #include "match.hpp"
 #include "code_generators.hpp"
+#include "syscall_errors.hpp"
 
 using namespace uplift;
 namespace elf = llvm::ELF;
@@ -1207,4 +1208,33 @@ void Module::Unprotect()
     auto program_address = &base_address_[phdr.p_vaddr];
     xe::memory::Protect(program_address, phdr.p_memsz, xe::memory::PageAccess::kReadWrite, nullptr);
   }
+}
+
+SyscallError Module::Close()
+{
+  return SyscallError::SUCCESS;
+}
+
+SyscallError Module::Read(void* data_buffer, size_t data_size, size_t* read_size)
+{
+  assert_always();
+  return SyscallError::eNOSYS;
+}
+
+SyscallError Module::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+{
+  assert_always();
+  return SyscallError::eNOSYS;
+}
+
+SyscallError Module::IOControl(uint32_t request, void* argp)
+{
+  assert_always();
+  return SyscallError::eNOSYS;
+}
+
+SyscallError Module::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+{
+  assert_always();
+  return SyscallError::eNOSYS;
 }

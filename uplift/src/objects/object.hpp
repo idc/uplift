@@ -26,7 +26,9 @@ namespace uplift::objects
     {
       Invalid = 0,
       Module,
+      Device,
       File,
+      Socket,
     };
 
   protected:
@@ -52,6 +54,13 @@ namespace uplift::objects
     void Retain();
     void Release();
     uint32_t Delete();
+
+  public:
+    virtual SyscallError Close() = 0;
+    virtual SyscallError Read(void* data_buffer, size_t data_size, size_t* read_size) = 0;
+    virtual SyscallError Write(const void* data_buffer, size_t data_size, size_t* written_size) = 0;
+    virtual SyscallError IOControl(uint32_t request, void* argp) = 0;
+    virtual SyscallError MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation) = 0;
 
   protected:
     Runtime* runtime_;
