@@ -70,7 +70,7 @@ uint32_t open_device(Runtime* runtime, const char* path, uint32_t flags, uint32_
   {
     device = object_ref<DeciTTYDevice>(new DeciTTYDevice(runtime)).get();
   }
-  else if (!strcmp(name, "/dev/dipsw"))
+  else if (!strcmp(name, "dipsw"))
   {
     device = object_ref<DipswDevice>(new DipswDevice(runtime)).get();
   }
