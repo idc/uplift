@@ -1084,7 +1084,7 @@ bool Module::RelocateRela()
 
       case elf::R_X86_64_DTPMOD64:
       {
-        //assert_always();
+        *reinterpret_cast<uint64_t*>(target) += tls_index_;
         break;
       }
 
