@@ -95,6 +95,7 @@
     <ClInclude Include="src\devices\console_device.hpp" />
     <ClInclude Include="src\devices\deci_tty_device.hpp" />
     <ClInclude Include="src\devices\dipsw_device.hpp" />
+    <ClInclude Include="src\devices\direct_memory_device.hpp" />
     <ClInclude Include="src\devices\gc_device.hpp" />
     <ClInclude Include="src\devices\notification_device.hpp" />
     <ClInclude Include="src\devices\_devices.hpp" />
@@ -116,6 +117,8 @@
     <ClInclude Include="src\stdafx\stdafx.h" />
     <ClInclude Include="src\stdafx\targetver.h" />
     <ClInclude Include="src\syscalls.hpp" />
+    <ClInclude Include="src\syscall_errors.hpp" />
+    <ClInclude Include="src\syscall_error_table.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\bmi1.cpp" />
@@ -123,6 +126,7 @@
     <ClCompile Include="src\devices\console_device.cpp" />
     <ClCompile Include="src\devices\deci_tty_device.cpp" />
     <ClCompile Include="src\devices\dipsw_device.cpp" />
+    <ClCompile Include="src\devices\direct_memory_device.cpp" />
     <ClCompile Include="src\devices\gc_device.cpp" />
     <ClCompile Include="src\devices\notification_device.cpp" />
     <ClCompile Include="src\dynamic_info.cpp" />

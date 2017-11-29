@@ -12,6 +12,6 @@ namespace uplift::objects
   public:
     virtual ~Device();
 
-    virtual uint32_t Initialize(std::string path, uint32_t flags, uint32_t mode) = 0;
+    virtual SyscallError Initialize(std::string path, uint32_t flags, uint32_t mode) = 0;
   };
 }

@@ -46,3 +46,4 @@ SYSCALL(608, dynlib_get_info_ex, uint32_t handle, void* arg2, void* arg3);
 SYSCALL(610, eport_create, /*const char* name,*/ uint32_t pid);
 SYSCALL(612, get_proc_type_info, void* type_info);
 SYSCALL(622, ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* data_buffer, size_t data_size, uint64_t cookie);
+SYSCALL(649, dynlib_get_obj_member, uint32_t handle, uint8_t index, void** value);

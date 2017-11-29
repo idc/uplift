@@ -66,6 +66,11 @@
     <ClInclude Include="src\objects\socket.hpp">
       <Filter>objects</Filter>
     </ClInclude>
+    <ClInclude Include="src\devices\direct_memory_device.hpp">
+      <Filter>devices</Filter>
+    </ClInclude>
+    <ClInclude Include="src\syscall_error_table.hpp" />
+    <ClInclude Include="src\syscall_errors.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -111,6 +116,9 @@
     </ClCompile>
     <ClCompile Include="src\objects\socket.cpp">
       <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\devices\direct_memory_device.cpp">
+      <Filter>devices</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

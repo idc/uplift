@@ -4,11 +4,11 @@
 
 namespace uplift::devices
 {
-  class GCDevice : public objects::Device
+  class DirectMemoryDevice : public objects::Device
   {
   public:
-    GCDevice(Runtime* runtime);
-    virtual ~GCDevice();
+    DirectMemoryDevice(Runtime* runtime);
+    virtual ~DirectMemoryDevice();
 
     SyscallError Initialize(std::string path, uint32_t flags, uint32_t mode);
     SyscallError Close();

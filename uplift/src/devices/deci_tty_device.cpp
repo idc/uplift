@@ -1,10 +1,12 @@
 #include "stdafx.h"
 
 #include "../runtime.hpp"
+#include "../syscall_errors.hpp"
 #include "deci_tty_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
+using namespace uplift::syscall_errors;
 
 DeciTTYDevice::DeciTTYDevice(Runtime* runtime)
   : Device(runtime)
@@ -15,36 +17,36 @@ DeciTTYDevice::~DeciTTYDevice()
 {
 }
 
-uint32_t DeciTTYDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
+SCERR DeciTTYDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t DeciTTYDevice::Close()
+SCERR DeciTTYDevice::Close()
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t DeciTTYDevice::Read(void* data_buffer, size_t data_size, size_t* read_size)
+SCERR DeciTTYDevice::Read(void* data_buffer, size_t data_size, size_t* read_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }
 
-uint32_t DeciTTYDevice::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+SCERR DeciTTYDevice::Write(const void* data_buffer, size_t data_size, size_t* written_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }
 
-uint32_t DeciTTYDevice::IOControl(uint32_t request, void* argp)
+SCERR DeciTTYDevice::IOControl(uint32_t request, void* argp)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }
 
-uint32_t DeciTTYDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR DeciTTYDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }

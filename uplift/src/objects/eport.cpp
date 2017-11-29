@@ -1,10 +1,12 @@
 #include "stdafx.h"
 
 #include "../runtime.hpp"
+#include "../syscall_errors.hpp"
 #include "eport.hpp"
 
 using namespace uplift;
 using namespace uplift::objects;
+using namespace uplift::syscall_errors;
 
 Eport::Eport(Runtime* runtime)
   : File(runtime)
@@ -15,31 +17,31 @@ Eport::~Eport()
 {
 }
 
-uint32_t Eport::Close()
+SCERR Eport::Close()
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t Eport::Read(void* data_buffer, size_t data_size, size_t* read_size)
+SCERR Eport::Read(void* data_buffer, size_t data_size, size_t* read_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }
 
-uint32_t Eport::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+SCERR Eport::Write(const void* data_buffer, size_t data_size, size_t* written_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }
 
-uint32_t Eport::IOControl(uint32_t request, void* argp)
+SCERR Eport::IOControl(uint32_t request, void* argp)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }
 
-uint32_t Eport::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR Eport::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }

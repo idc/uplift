@@ -1,10 +1,12 @@
 #include "stdafx.h"
 
 #include "../runtime.hpp"
+#include "../syscall_errors.hpp"
 #include "dipsw_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
+using namespace uplift::syscall_errors;
 
 DipswDevice::DipswDevice(Runtime* runtime)
   : Device(runtime)
@@ -15,60 +17,60 @@ DipswDevice::~DipswDevice()
 {
 }
 
-uint32_t DipswDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
+SCERR DipswDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t DipswDevice::Close()
+SCERR DipswDevice::Close()
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t DipswDevice::Read(void* data_buffer, size_t data_size, size_t* read_size)
-{
-  assert_always();
-  return 19;
-}
-
-uint32_t DipswDevice::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+SCERR DipswDevice::Read(void* data_buffer, size_t data_size, size_t* read_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }
 
-uint32_t DipswDevice::IOControl(uint32_t request, void* argp)
+SCERR DipswDevice::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+{
+  assert_always();
+  return SCERR::eNOSYS;
+}
+
+SCERR DipswDevice::IOControl(uint32_t request, void* argp)
 {
   switch (request)
   {
-    case 0x40048806:
+    case 0x40048806u:
     {
       *static_cast<uint32_t*>(argp) = 1;
-      return 0;
+      return SUCCESS;
     }
-    case 0x40048807:
+    case 0x40048807u:
     {
       *static_cast<uint32_t*>(argp) = 0;
-      return 0;
+      return SUCCESS;
     }
-    case 0x40088808:
+    case 0x40088808u:
     {
       *static_cast<uint64_t*>(argp) = 0;
-      return 0;
+      return SUCCESS;
     }
 
-    case 0x40088809:
+    case 0x40088809u:
     {
       *static_cast<uint64_t*>(argp) = 0;
-      return 0;
+      return SUCCESS;
     }
   }
   assert_always();
-  return 22;
+  return SCERR::eINVAL;
 }
 
-uint32_t DipswDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR DipswDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }

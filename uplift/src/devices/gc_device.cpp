@@ -3,10 +3,12 @@
 #include <xenia/base/memory.h>
 
 #include "../runtime.hpp"
+#include "../syscall_errors.hpp"
 #include "gc_device.hpp"
 
 using namespace uplift;
 using namespace uplift::devices;
+using namespace uplift::syscall_errors;
 
 GCDevice::GCDevice(Runtime* runtime)
   : Device(runtime)
@@ -17,29 +19,29 @@ GCDevice::~GCDevice()
 {
 }
 
-uint32_t GCDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
+SCERR GCDevice::Initialize(std::string path, uint32_t flags, uint32_t mode)
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t GCDevice::Close()
+SCERR GCDevice::Close()
 {
-  return 0;
+  return SUCCESS;
 }
 
-uint32_t GCDevice::Read(void* data_buffer, size_t data_size, size_t* read_size)
-{
-  assert_always();
-  return 19;
-}
-
-uint32_t GCDevice::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+SCERR GCDevice::Read(void* data_buffer, size_t data_size, size_t* read_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }
 
-uint32_t GCDevice::IOControl(uint32_t request, void* argp)
+SCERR GCDevice::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+{
+  assert_always();
+  return SCERR::eNOSYS;
+}
+
+SCERR GCDevice::IOControl(uint32_t request, void* argp)
 {
   switch (request)
   {
@@ -52,7 +54,7 @@ uint32_t GCDevice::IOControl(uint32_t request, void* argp)
       auto args = static_cast<request_args*>(argp);
       printf("gc ioctl(%x): %I64x\n", request, args->unknown);
       args->unknown = 0x1234FFFF00000000ull;
-      return 0;
+      return SUCCESS;
     }
 
     case 0xC00C8110u: // "set gs ring sizes"
@@ -65,7 +67,7 @@ uint32_t GCDevice::IOControl(uint32_t request, void* argp)
       };
       auto args = static_cast<request_args*>(argp);
       printf("gc ioctl(%x): %x, %x, %x\n", request, args->unknown_0, args->unknown_4, args->unknown_8);
-      return 0;
+      return SUCCESS;
     }
 
     case 0xC0848119u:
@@ -81,15 +83,15 @@ uint32_t GCDevice::IOControl(uint32_t request, void* argp)
       };
       auto args = static_cast<request_args*>(argp);
       printf("gc ioctl(%x): %x, %x, %x, %x, %x\n", request, args->unknown_00, args->unknown_04, args->unknown_08, args->unknown_0C, args->unknown_80);
-      return 0;
+      return SUCCESS;
     }
   }
 
   assert_always();
-  return 19;
+  return SCERR::eNOSYS;
 }
 
-uint32_t GCDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR GCDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
 {
   assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x1000 | 0x2000)));
 
@@ -106,8 +108,8 @@ uint32_t GCDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offse
 
   if (allocation)
   {
-    return 0;
+    return SUCCESS;
   }
 
-  return 12;
+  return SCERR::eNOMEM;
 }

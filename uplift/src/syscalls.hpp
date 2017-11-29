@@ -4,10 +4,17 @@ namespace uplift
 {
   class Runtime;
 
+  enum class SyscallError : uint64_t;
+
   union SyscallReturnValue
   {
     void* ptr;
     uint64_t val;
+    SyscallError err;
+
+    /* To ensure the entire union is written, SyscallError
+     * is forced to 64-bit width.
+     */
   };
 
   typedef bool(*SYSCALL_HANDLER)(Runtime* runtime, SyscallReturnValue& retval, ...);

@@ -13,6 +13,8 @@ namespace uplift
 
   template <typename T>
   class object_ref;
+
+  enum class SyscallError : uint64_t;
 }
 
 namespace uplift::objects

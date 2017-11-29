@@ -5,12 +5,14 @@
 
 #include "runtime.hpp"
 #include "syscalls.hpp"
+#include "syscall_errors.hpp"
 #include "helpers.hpp"
 
 #include "objects/_objects.hpp"
 #include "devices/_devices.hpp"
 
 using namespace uplift;
+using namespace uplift::syscall_errors;
 using namespace uplift::devices;
 using namespace uplift::objects;
 
@@ -43,9 +45,9 @@ SYSCALL_IMPL(write, uint32_t fd, const void* buf, size_t nbytes)
     {
       size_t written;
       auto result = object->Write(buf, nbytes, &written);
-      if (result)
+      if (!IS_SUCCESS(result))
       {
-        retval.val = result;
+        retval.err = result;
         return false;
       }
       retval.val = written;
@@ -53,12 +55,12 @@ SYSCALL_IMPL(write, uint32_t fd, const void* buf, size_t nbytes)
     }
   }
 
-  retval.val = -1;
+  retval.err = SCERR::eBADF;
   assert_always();
   return false;
 }
 
-uint32_t open_device(Runtime* runtime, const char* path, uint32_t flags, uint32_t mode, ObjectHandle& handle)
+SCERR open_device(Runtime* runtime, const char* path, uint32_t flags, uint32_t mode, ObjectHandle& handle)
 {
   Device* device = nullptr;
   const char* name = &path[5];
@@ -69,6 +71,10 @@ uint32_t open_device(Runtime* runtime, const char* path, uint32_t flags, uint32_
   else if (!strcmp(name, "deci_tty6"))
   {
     device = object_ref<DeciTTYDevice>(new DeciTTYDevice(runtime)).get();
+  }
+  else if (!strncmp(name, "dmem", strlen("dmem")))
+  {
+    device = object_ref<DirectMemoryDevice>(new DirectMemoryDevice(runtime)).get();
   }
   else if (!strcmp(name, "dipsw"))
   {
@@ -89,18 +95,18 @@ uint32_t open_device(Runtime* runtime, const char* path, uint32_t flags, uint32_
 
   if (!device)
   {
-    return 2; // ENOENT
+    return SCERR::eNOENT;
   }
 
   auto result = device->Initialize(std::string(path), flags, mode);
-  if (result)
+  if (IS_ERROR(result))
   {
     device->ReleaseHandle();
     return result;
   }
 
   handle = device->handle();
-  return 0;
+  return SUCCESS;
 }
 
 SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
@@ -109,7 +115,7 @@ SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
 
   if (path == nullptr)
   {
-    retval.val = 22; // EINVAL
+    retval.err = SCERR::eINVAL;
     return false;
   }
 
@@ -117,9 +123,9 @@ SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
   {
     ObjectHandle handle;
     auto result = open_device(runtime, path, flags, mode, handle);
-    if (result)
+    if (IS_ERROR(result))
     {
-      retval.val = result;
+      retval.err = result;
       return false;
     }
     retval.val = handle;
@@ -130,12 +136,12 @@ SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
       !strcmp(path, "/app0/sce_discmap_patch.plt"))
   {
     // short circuit some files not cared about yet
-    retval.val = 16; // EBUSY
+    retval.err = SCERR::eBUSY;
     return false;
   }
 
   assert_always();
-  retval.val = 16; // EBUSY
+  retval.err = SCERR::eBUSY;
   return false;
 }
 
@@ -150,7 +156,7 @@ SYSCALL_IMPL(close, uint32_t fd)
   }
 
   assert_always();
-  retval.val = 9;
+  retval.err = SCERR::eBADF;
   return false;
 }
 
@@ -170,26 +176,24 @@ SYSCALL_IMPL(ioctl, uint32_t fd, uint32_t request, void* argp)
   auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
   if (object)
   {
-    retval.val = object->IOControl(request, argp);
-    return retval.val == 0;
+    retval.err = object->IOControl(request, argp);
+    return IS_SUCCESS(retval.err);
   }
 
   assert_always();
-  retval.val = 9;
+  retval.err = SCERR::eBADF;
   return false;
 }
 
 SYSCALL_IMPL(munmap, void* addr, size_t len)
 {
   printf("munmap: %p-%p (%I64u)\n", addr, &static_cast<const uint8_t*>(addr)[(!len ? 1 : len) - 1], len);
-  retval.val = 0;
   return true;
 }
 
 SYSCALL_IMPL(mprotect, const void* addr, size_t len, int prot)
 {
   printf("mprotect: %p-%p (%I64u) %x\n", addr, &static_cast<const uint8_t*>(addr)[(!len ? 1 : len) - 1], len, prot);
-  retval.val = 0;
   return true;
 }
 
@@ -200,10 +204,10 @@ SYSCALL_IMPL(socket, int domain, int type, int protocol)
     static_cast<Socket::Domain>(domain),
     static_cast<Socket::Type>(type),
     static_cast<Socket::Protocol>(protocol));
-  if (result)
+  if (IS_ERROR(result))
   {
     socket->Release();
-    retval.val = result;
+    retval.err = result;
     return false;
   }
   retval.val = socket->handle();
@@ -212,18 +216,25 @@ SYSCALL_IMPL(socket, int domain, int type, int protocol)
 
 SYSCALL_IMPL(netcontrol, uint32_t fd, uint32_t op, void* data_buffer, uint32_t data_size)
 {
+  if (data_size > 160)
+  {
+    retval.err = SCERR::eINVAL;
+    return false;
+  }
+
+  assert_true(fd == -1);
+
   switch (op)
   {
     case 20: // bnet_get_secure_seed
     {
       *static_cast<uint32_t*>(data_buffer) = 4; // totally secure number
-      retval.val = 0;
       return true;
     }
   }
 
   assert_always();
-  retval.val = -1;
+  retval.err = SCERR::eINVAL;
   return false;
 }
 
@@ -234,10 +245,10 @@ SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
     static_cast<Socket::Domain>(domain),
     static_cast<Socket::Type>(type),
     static_cast<Socket::Protocol>(protocol));
-  if (result)
+  if (IS_ERROR(result))
   {
     socket->Release();
-    retval.val = result;
+    retval.err = result;
     return false;
   }
   runtime->object_table()->AddNameMapping(name, socket->handle());
@@ -313,7 +324,7 @@ SYSCALL_IMPL(sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, c
     {
       // devkit, testkit?
       // claim they don't exist
-      retval.val = 2; // ENOENT
+      retval.err = SCERR::eNOENT;
       return false;
     }
 
@@ -427,13 +438,13 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
   assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x1000 | 0x2000)));
 
   void* allocation = nullptr;
-  uint32_t result = 0;
+  SCERR result = SUCCESS;
   if (fd != -1)
   {
     auto object = runtime->object_table()->LookupObject<File>((ObjectHandle)fd).get();
     if (!object)
     {
-      result = 9;
+      result = SCERR::eBADF;
     }
     else
     {
@@ -445,7 +456,6 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
     auto access = xe::memory::PageAccess::kReadWrite;
     auto allocation_type = xe::memory::AllocationType::kReserveCommit;
 
-    result = 0;
     allocation = xe::memory::AllocFixed(addr, len, allocation_type, access);
     if (!allocation && !(flags & 0x10))
     {
@@ -455,14 +465,14 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
 
     if (!allocation)
     {
-      result = 12;
+      result = SCERR::eNOMEM;
     }
   }
 
-  if (result)
+  if (IS_ERROR(result))
   {
     printf(", FAILURE\n");
-    retval.val = result;
+    retval.err = result;
     return false;
   }
 
@@ -497,7 +507,6 @@ struct nonsys_int
 
 SYSCALL_IMPL(cpuset_getaffinity, int32_t level, int32_t which, int32_t id, size_t setsize, uint64_t* mask)
 {
-  retval.val = 0;
   return true;
 }
 
@@ -590,6 +599,12 @@ SYSCALL_IMPL(dynlib_dlsym, uint32_t handle, const char* cname, void** sym)
   }
 
   auto name = std::string(cname);
+
+  if (name == "module_start")
+  {
+    printf("DLSYM FOR module_start OF %s!\n", module_name.c_str());
+  }
+
   auto symbol_name = name + "#" + module_name + "#" + module_name;
   uint64_t symbol_value;
   if (module->ResolveSymbol(elf_hash(symbol_name.c_str()), symbol_name, symbol_value))
@@ -651,14 +666,14 @@ SYSCALL_IMPL(dynlib_get_info, uint32_t handle, void* vinfo)
 {
   if (static_cast<dynlib_info*>(vinfo)->struct_size != sizeof(dynlib_info))
   {
-    retval.val = -1;
+    retval.err = SCERR::eINVAL;
     return false;
   }
 
   auto module = runtime->object_table()->LookupObject<Module>(handle).get();
   if (!module)
   {
-    retval.val = -1;
+    retval.err = SCERR::eSRCH;
     return false;
   }
 
@@ -808,14 +823,14 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t handle, void* arg2, void* vinfo)
 {
   if (static_cast<dynlib_info_ex*>(vinfo)->struct_size != sizeof(dynlib_info_ex))
   {
-    retval.val = -1;
+    retval.err = SCERR::eINVAL;
     return false;
   }
 
   auto module = runtime->object_table()->LookupObject<Module>(handle).get();
   if (!module)
   {
-    retval.val = -1;
+    retval.err = SCERR::eSRCH;
     return false;
   }
 
@@ -835,7 +850,7 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t handle, void* arg2, void* vinfo)
   info.handle = module->handle();
   info.struct_size = sizeof(dynlib_info_ex);
   info.tls_index = module->tls_index();
-  info.tls_address = !program_info.tls_address ? nullptr : &base_address[program_info.tls_address];
+  info.tls_address = !program_info.tls_memory_size ? nullptr : &base_address[program_info.tls_address];
   info.tls_file_size = static_cast<uint32_t>(program_info.tls_file_size);
   info.tls_memory_size = static_cast<uint32_t>(program_info.tls_memory_size);
   info.tls_align = static_cast<uint32_t>(program_info.tls_align);
@@ -851,7 +866,7 @@ SYSCALL_IMPL(dynlib_get_info_ex, uint32_t handle, void* arg2, void* vinfo)
   info.data_address = module->data_address();
   info.data_size = static_cast<uint32_t>(module->data_size());
   info.data_flags = 1 | 2; // R+W
-  info.unknown_1A0 = 2;
+  info.unknown_1A0 = 0; // 2
   info.ref_count = module->pointer_ref_count();
   std::memcpy(vinfo, &info, sizeof(dynlib_info_ex));
   return true;
@@ -864,7 +879,7 @@ SYSCALL_IMPL(eport_create, /*const char* name,*/ uint32_t pid)
 
   if (pid != -1 && pid != 123)
   {
-    retval.val = 78;
+    retval.err = SCERR::eNOSYS;
     return false;
   }
 
@@ -1007,6 +1022,34 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* d
   assert_always();
   retval.val = -1;
   return false;
+}
+
+SYSCALL_IMPL(dynlib_get_obj_member, uint32_t handle, uint8_t index, void** value)
+{
+  auto module = runtime->object_table()->LookupObject<Module>(handle).get();
+  if (!module)
+  {
+    retval.err = SCERR::eSRCH;
+    return false;
+  }
+
+  switch (index)
+  {
+    case 1:
+    {
+      auto dynamic_info = module->dynamic_info();
+      *value = !dynamic_info.has_init_offset ? nullptr : &module->base_address()[dynamic_info.init_offset];
+      break;
+    }
+
+    default:
+    {
+      retval.err = SCERR::eINVAL;
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void uplift::get_syscall_table(SyscallEntry table[SyscallTableSize])

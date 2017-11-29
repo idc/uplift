@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "../runtime.hpp"
+#include "../syscall_errors.hpp"
 #include "socket.hpp"
 
 #ifdef XE_PLATFORM_WIN32
@@ -13,6 +14,7 @@
 
 using namespace uplift;
 using namespace uplift::objects;
+using namespace uplift::syscall_errors;
 
 using Domain = Socket::Domain;
 using Type = Socket::Type;
@@ -71,7 +73,7 @@ Socket::~Socket()
   Close(); 
 }
 
-uint32_t Socket::Initialize(Domain domain, Type type, Protocol protocol)
+SCERR Socket::Initialize(Domain domain, Type type, Protocol protocol)
 {
   domain_ = domain;
   type_ = type;
@@ -80,51 +82,51 @@ uint32_t Socket::Initialize(Domain domain, Type type, Protocol protocol)
   native_dtp native_dtp;
   if (!translate_dtp(domain, type, protocol, native_dtp))
   {
-    return 22;
+    return SCERR::eINVAL;
   }
 
   native_handle_ = socket(native_dtp.af, native_dtp.type, native_dtp.protocol);
-  return native_handle_ == -1 ? -1 : 0;
+  return native_handle_ == -1 ? SCERR::eNOMEM : SUCCESS;
 }
 
-uint32_t Socket::Close()
+SCERR Socket::Close()
 {
 #if XE_PLATFORM_WIN32
   int result = closesocket(native_handle_);
 #elif XE_PLATFORM_LINUX
   int result = close(native_handle_);
 #endif
-  return result != 0 ? -1 : 0;
+  return result != 0 ? SCERR::eIO : SUCCESS;
 }
 
-uint32_t Socket::Read(void* data_buffer, size_t data_size, size_t* read_size)
+SCERR Socket::Read(void* data_buffer, size_t data_size, size_t* read_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }
 
-uint32_t Socket::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+SCERR Socket::Write(const void* data_buffer, size_t data_size, size_t* written_size)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }
 
-uint32_t Socket::IOControl(uint32_t request, void* argp)
+SCERR Socket::IOControl(uint32_t request, void* argp)
 {
   switch (request)
   {
-    case 0x802450C9: // init?
+    case 0x802450C9u: // init socket subsystem?
     {
-      return 0;
+      return SUCCESS;
     }
   }
 
   assert_always();
-  return -1;
+  return SCERR::eNODEV;
 }
 
-uint32_t Socket::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR Socket::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
 {
   assert_always();
-  return 19;
+  return SCERR::eNODEV;
 }
