@@ -221,7 +221,7 @@ object_ref<Module> Module::Load(Runtime* runtime, const std::wstring& path)
   if (reserved_before_size >= desired_rip_zone_size)
   {
     rip_zone_start.val = reserved_before_size + load_size < INT32_MAX
-      ? (reserved_address_aligned.val + load_size) & ~(page_size - 1)
+      ? (reserved_address_aligned.val) & ~(page_size - 1)
       : (base_address.val + load_size + INT32_MIN) & ~(page_size - 1);
     rip_zone_end.ptr = &rip_zone_start.ptr[desired_rip_zone_size];
     assert_true(rip_zone_start.ptr >= reserved_address_aligned.ptr && rip_zone_end.ptr <= base_address.ptr);
