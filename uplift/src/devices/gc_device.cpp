@@ -91,7 +91,7 @@ SCERR GCDevice::IOControl(uint32_t request, void* argp)
   return SCERR::eNOSYS;
 }
 
-SCERR GCDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR GCDevice::MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation)
 {
   assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x1000 | 0x2000)));
 

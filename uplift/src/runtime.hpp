@@ -11,6 +11,11 @@
 #include "object_table.hpp"
 #include "syscalls.hpp"
 
+namespace uplift::objects
+{
+  class Eport;
+}
+
 namespace uplift
 {
   class Runtime
@@ -74,5 +79,7 @@ namespace uplift
     uint8_t* user_stack_base_;
     uint8_t* user_stack_end_;
     uint32_t next_namedobj_id_;
+
+    objects::Eport* eport_;
   };
 }

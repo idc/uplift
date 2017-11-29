@@ -3,10 +3,12 @@
 #include <xenia/base/assert.h>
 
 #include "../runtime.hpp"
+#include "../syscall_errors.hpp"
 #include "object.hpp"
 
 using namespace uplift;
 using namespace uplift::objects;
+using namespace uplift::syscall_errors;
 
 Object::Object(Runtime* runtime, Type type)
   : runtime_(runtime)
@@ -50,4 +52,34 @@ uint32_t Object::Delete()
     runtime_->object_table()->RemoveNameMapping(name_);
   }
   return runtime_->object_table()->RemoveHandle(handles_[0]);
+}
+
+SCERR Object::Read(void* data_buffer, size_t data_size, size_t* read_size)
+{
+  assert_always();
+  return SCERR::eNODEV;
+}
+
+SCERR Object::Write(const void* data_buffer, size_t data_size, size_t* written_size)
+{
+  assert_always();
+  return SCERR::eNODEV;
+}
+
+SCERR Object::Truncate(int64_t length)
+{
+  assert_always();
+  return SCERR::eNODEV;
+}
+
+SCERR Object::IOControl(uint32_t request, void* argp)
+{
+  assert_always();
+  return SCERR::eNODEV;
+}
+
+SCERR Object::MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation)
+{
+  assert_always();
+  return SCERR::eNODEV;
 }

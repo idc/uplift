@@ -35,9 +35,6 @@
     <ClInclude Include="src\rip_pointers.hpp" />
     <ClInclude Include="src\module.hpp" />
     <ClInclude Include="src\runtime.hpp" />
-    <ClInclude Include="src\objects\file.hpp">
-      <Filter>objects</Filter>
-    </ClInclude>
     <ClInclude Include="src\objects\object.hpp">
       <Filter>objects</Filter>
     </ClInclude>
@@ -83,6 +80,15 @@
     <ClInclude Include="src\devices\device.hpp">
       <Filter>devices</Filter>
     </ClInclude>
+    <ClInclude Include="src\objects\event_flag.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\file.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\shared_memory.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -98,9 +104,6 @@
     <ClCompile Include="src\code_generators.cpp" />
     <ClCompile Include="src\module.cpp" />
     <ClCompile Include="src\runtime.cpp" />
-    <ClCompile Include="src\objects\file.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
     <ClCompile Include="src\objects\object.cpp">
       <Filter>objects</Filter>
     </ClCompile>
@@ -135,6 +138,16 @@
     <ClCompile Include="src\devices\device.cpp">
       <Filter>devices</Filter>
     </ClCompile>
+    <ClCompile Include="src\objects\event_flag.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\file.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\shared_memory.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\syscalls_win.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\syscall_table.inl" />

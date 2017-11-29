@@ -9,7 +9,7 @@ using namespace uplift::objects;
 using namespace uplift::syscall_errors;
 
 Eport::Eport(Runtime* runtime)
-  : File(runtime)
+  : Object(runtime, ObjectType)
 {
 }
 
@@ -40,7 +40,7 @@ SCERR Eport::IOControl(uint32_t request, void* argp)
   return SCERR::eNODEV;
 }
 
-SCERR Eport::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR Eport::MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation)
 {
   assert_always();
   return SCERR::eNODEV;

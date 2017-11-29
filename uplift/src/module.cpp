@@ -1233,7 +1233,7 @@ SyscallError Module::IOControl(uint32_t request, void* argp)
   return SyscallError::eNOSYS;
 }
 
-SyscallError Module::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SyscallError Module::MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation)
 {
   assert_always();
   return SyscallError::eNOSYS;

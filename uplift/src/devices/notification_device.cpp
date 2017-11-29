@@ -54,7 +54,7 @@ SCERR NotificationDevice::IOControl(uint32_t request, void* argp)
   return SCERR::eNOSYS;
 }
 
-SCERR NotificationDevice::MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation)
+SCERR NotificationDevice::MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation)
 {
   assert_always();
   return SCERR::eNOSYS;

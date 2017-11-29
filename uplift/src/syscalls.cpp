@@ -42,7 +42,7 @@ SYSCALL_IMPL(write, uint32_t fd, const void* buf, size_t nbytes)
   }
   else
   {
-    auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
+    auto object = runtime->object_table()->LookupObject(static_cast<ObjectHandle>(fd)).get();
     if (object)
     {
       size_t written;
@@ -149,17 +149,16 @@ SYSCALL_IMPL(open, const char* path, uint32_t flags, uint32_t mode)
 
 SYSCALL_IMPL(close, uint32_t fd)
 {
-  auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
-  if (object)
+  auto object = runtime->object_table()->LookupObject(static_cast<ObjectHandle>(fd)).get();
+  if (!object)
   {
-    object->Close();
-    object->ReleaseHandle();
-    return true;
+    assert_always();
+    retval.err = SCERR::eBADF;
+    return false;
   }
-
-  assert_always();
-  retval.err = SCERR::eBADF;
-  return false;
+  object->Close();
+  object->ReleaseHandle();
+  return true;
 }
 
 SYSCALL_IMPL(getpid)
@@ -175,7 +174,7 @@ SYSCALL_IMPL(ioctl, uint32_t fd, uint32_t request, void* argp)
   printf("ioctl(%d): [%x] inout=%s, group=%c, num=%u, len=%u\n",
          fd, request, label, (request >> 8) & 0xFFu, request & 0xFFu, (request >> 16) & 0x1FFFu);
 
-  auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
+  auto object = runtime->object_table()->LookupObject(static_cast<ObjectHandle>(fd)).get();
   if (object)
   {
     retval.err = object->IOControl(request, argp);
@@ -239,7 +238,7 @@ SYSCALL_IMPL(connect, uint32_t s, const void* name, uint32_t namelen)
     return false;
   }
 
-  auto object = runtime->object_table()->LookupObject<Socket>((ObjectHandle)s);
+  auto object = runtime->object_table()->LookupObject<Socket>(static_cast<ObjectHandle>(s));
   if (!object)
   {
     retval.err = SCERR::eBADF;
@@ -280,7 +279,7 @@ SYSCALL_IMPL(socketex, const char* name, int domain, int type, int protocol)
   {
     return false;
   }
-  runtime->object_table()->AddNameMapping(name, retval.val);
+  runtime->object_table()->AddNameMapping(name, static_cast<ObjectHandle>(retval.val));
   return true;
 }
 
@@ -426,6 +425,13 @@ SYSCALL_IMPL(sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, c
   return false;
 }
 
+SCERR clock_gettime_win(uint32_t clock_id, void* tp);
+SYSCALL_IMPL(clock_gettime, uint32_t clock_id, void* tp)
+{
+  retval.err = clock_gettime_win(clock_id, tp);
+  return IS_SUCCESS(retval.err);
+}
+
 SYSCALL_IMPL(sigprocmask)
 {
   return true;
@@ -459,9 +465,9 @@ SYSCALL_IMPL(rtprio_thread, int function, uint64_t lwpid, void* rtp)
   return true;
 }
 
-SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32_t fd, off_t offset)
+SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32_t fd, size_t offset)
 {
-  printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%x", addr, len, prot, flags, fd, offset);
+  printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%I64x", addr, len, prot, flags, fd, offset);
 
   assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x1000 | 0x2000)));
 
@@ -469,7 +475,7 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
   SCERR result = SUCCESS;
   if (fd != -1)
   {
-    auto object = runtime->object_table()->LookupObject((ObjectHandle)fd).get();
+    auto object = runtime->object_table()->LookupObject(static_cast<ObjectHandle>(fd)).get();
     if (!object)
     {
       result = SCERR::eBADF;
@@ -533,6 +539,73 @@ struct nonsys_int
   uint32_t value;
 };
 
+SYSCALL_IMPL(ftruncate, uint32_t fd, int64_t length)
+{
+  printf("ftruncate: %x %I64x\n", fd, length);
+
+  if (length < 0)
+  {
+    retval.err = SCERR::eINVAL;
+    return false;
+  }
+
+  auto object = runtime->object_table()->LookupObject(static_cast<ObjectHandle>(fd)).get();
+  if (!object)
+  {
+    retval.err = SCERR::eBADF;
+    return false;
+  }
+
+  object->Truncate(length);
+  return true;
+}
+
+SYSCALL_IMPL(shm_open, const char* path, uint32_t flags, uint16_t mode)
+{
+  printf("shm_open: %s %x %x\n", path, flags, mode);
+
+  if ((flags & 0x3) != 0 && (flags & 0x3) != 2) // O_RDONLY or O_RDWR
+  {
+    retval.err = SCERR::eINVAL;
+    return false;
+  }
+
+  if (flags & ~(0x3 | 0xE00)) // O_CREAT or O_TRUNC or O_EXCL
+  {
+    retval.err = SCERR::eINVAL;
+    return false;
+  }
+
+  ObjectHandle handle;
+  if (!runtime->object_table()->GetObjectByName(std::string(path), &handle))
+  {
+    if (!(flags & 0x200))
+    {
+      retval.err = SCERR::eSRCH;
+      return false;
+    }
+
+    auto shm = object_ref<SharedMemory>(new SharedMemory(runtime)).get();
+    SCERR result = shm->Initialize(std::string(path), flags, mode);
+    if (IS_ERROR(result))
+    {
+      shm->ReleaseHandle();
+      retval.err = SCERR::eAGAIN;
+      return false;
+    }
+
+    handle = shm->handle();
+    runtime->object_table()->AddNameMapping(std::string(path), handle);
+  }
+  else
+  {
+    runtime->object_table()->RetainHandle(handle);
+  }
+
+  retval.val = handle;
+  return true;
+}
+
 SYSCALL_IMPL(cpuset_getaffinity, int32_t level, int32_t which, int32_t id, size_t setsize, uint64_t* mask)
 {
   return true;
@@ -560,17 +633,61 @@ SYSCALL_IMPL(regmgr_call, uint32_t op, uint32_t id, void* result, void* value, u
   return false;
 }
 
-SYSCALL_IMPL(evf_create, const char* name, uint32_t arg2, uint64_t arg3)
+SYSCALL_IMPL(evf_create, const char* name, uint32_t flags, uint64_t arg3)
 {
-  printf("evf_create: %s %x %I64x\n", name, arg2, arg3);
-  retval.val = 0;
+  printf("evf_create: %s %x %I64x\n", name, flags, arg3);
+
+  if ((flags & ~0x133u) != 0x0 || (flags & 0x3) == 0x3)
+  {
+    retval.err = SCERR::eINVAL;
+    return false;
+  }
+
+  auto evf = object_ref<EventFlag>(new EventFlag(runtime)).get();
+  SCERR result = evf->Initialize(flags, arg3);
+  if (IS_ERROR(result))
+  {
+    evf->ReleaseHandle();
+    retval.err = SCERR::eAGAIN;
+    return false;
+  }
+  runtime->object_table()->AddNameMapping(std::string(name), evf->handle());
+  retval.val = evf->handle();
   return true;
 }
 
 SYSCALL_IMPL(evf_delete, uint32_t handle)
 {
   printf("evf_delete: %x\n", handle);
-  retval.val = 0;
+  auto evf = runtime->object_table()->LookupObject<EventFlag>(static_cast<ObjectHandle>(handle)).get();
+  if (!evf)
+  {
+    assert_always();
+    retval.err = SCERR::eBADF;
+    return false;
+  }
+  evf->Close();
+  evf->ReleaseHandle();
+  return true;
+}
+
+SYSCALL_IMPL(evf_open, const char* name)
+{
+  printf("evf_open: %s\n", name);
+  ObjectHandle handle;
+  if (!runtime->object_table()->GetObjectByName(std::string(name), &handle))
+  {
+    retval.err = SCERR::eSRCH;
+    return false;
+  }
+  auto object = runtime->object_table()->LookupObject<EventFlag>(handle).get();
+  if (!object)
+  {
+    retval.err = SCERR::eSRCH;
+    return false;
+  }
+  object->RetainHandle();
+  retval.val = object->handle();
   return true;
 }
 
@@ -928,16 +1045,17 @@ SYSCALL_IMPL(eport_create, /*const char* name,*/ uint32_t pid)
     return false;
   }
 
-  auto eport = object_ref<Eport>(new Eport(runtime));
-  uint32_t result = 0; // Init?
-  if (!result)
+  auto eport = object_ref<Eport>(new Eport(runtime)).get();
+  SCERR result = SUCCESS; // Init?
+  if (IS_ERROR(result))
   {
-    retval.val = 0; // intentionally 'leak'? check is need to be returned somehow
-    return true;
+    eport->ReleaseHandle();
+    retval.err = SCERR::eAGAIN;
+    return false;
   }
-  eport->ReleaseHandle();
-  retval.val = result;
-  return false;
+  runtime->eport_ = eport;
+  retval.err = SUCCESS;
+  return true;
 }
 
 SYSCALL_IMPL(get_proc_type_info, void* vtype_info)

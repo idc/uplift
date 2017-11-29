@@ -1,27 +1,32 @@
 #pragma once
 
-#include "device.hpp"
+#include "object.hpp"
 
-namespace uplift::devices
+namespace uplift::objects
 {
-  class DirectMemoryDevice : public Device
+  class SharedMemory : public Object
   {
   public:
-    DirectMemoryDevice(Runtime* runtime);
-    virtual ~DirectMemoryDevice();
+    static const Object::Type ObjectType = Type::SharedMemory;
 
-    SyscallError Initialize(std::string path, uint32_t flags, uint32_t mode);
+  public:
+    SharedMemory(Runtime* runtime);
+    virtual ~SharedMemory();
+
+    SyscallError Initialize(const std::string& path, uint32_t flags, uint16_t mode);
 
     SyscallError Close();
     SyscallError Read(void* data_buffer, size_t data_size, size_t* read_size);
     SyscallError Write(const void* data_buffer, size_t data_size, size_t* written_size);
+    SyscallError Truncate(int64_t length);
     SyscallError IOControl(uint32_t request, void* argp);
     SyscallError MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation);
 
   private:
+    void* native_handle_;
+    int64_t length_;
     std::string path_;
     uint32_t flags_;
-    uint32_t mode_;
-    bool is_initialized_;
+    uint16_t mode_;
   };
 }

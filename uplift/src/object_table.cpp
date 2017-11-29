@@ -5,6 +5,7 @@
 
 #include "object_table.hpp"
 #include "objects/object.hpp"
+#include "syscall_errors.hpp"
 
 using namespace uplift;
 
@@ -379,8 +380,13 @@ void ObjectTable::RemoveNameMapping(const std::string& name)
   }
 }
 
-uint32_t ObjectTable::GetObjectByName(const std::string& name, ObjectHandle* out_handle)
+bool ObjectTable::GetObjectByName(const std::string& name, ObjectHandle* out_handle)
 {
+  if (!out_handle)
+  {
+    return false;
+  }
+
   // Names are case-insensitive.
   std::string lower_name = name;
   std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), tolower);
@@ -390,7 +396,7 @@ uint32_t ObjectTable::GetObjectByName(const std::string& name, ObjectHandle* out
   if (it == name_table_.end()) 
   {
     *out_handle = (ObjectHandle)-1;
-    return 9;
+    return false;
   }
   *out_handle = it->second;
 
@@ -402,5 +408,5 @@ uint32_t ObjectTable::GetObjectByName(const std::string& name, ObjectHandle* out
     obj->Release();
   }
 
-  return 0;
+  return true;
 }

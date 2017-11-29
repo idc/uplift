@@ -43,7 +43,7 @@ namespace uplift
 
     uint32_t AddNameMapping(const std::string& name, ObjectHandle handle);
     void RemoveNameMapping(const std::string& name);
-    uint32_t GetObjectByName(const std::string& name, ObjectHandle* out_handle);
+    bool GetObjectByName(const std::string& name, ObjectHandle* out_handle);
     
     template <typename T>
     std::vector<object_ref<T>> GetObjectsByType(objects::Object::Type type)

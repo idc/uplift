@@ -34,6 +34,7 @@ Runtime::Runtime()
   , user_stack_base_(nullptr)
   , user_stack_end_(nullptr)
   , next_namedobj_id_(0)
+  , eport_(nullptr)
 {
   get_syscall_table(syscall_table_);
 }

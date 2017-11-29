@@ -1,16 +1,19 @@
 #pragma once
 
-#include "device.hpp"
+#include "object.hpp"
 
-namespace uplift::devices
+namespace uplift::objects
 {
-  class DirectMemoryDevice : public Device
+  class EventFlag : public Object
   {
   public:
-    DirectMemoryDevice(Runtime* runtime);
-    virtual ~DirectMemoryDevice();
+    static const Object::Type ObjectType = Type::EventFlag;
 
-    SyscallError Initialize(std::string path, uint32_t flags, uint32_t mode);
+  public:
+    EventFlag(Runtime* runtime);
+    virtual ~EventFlag();
+
+    SyscallError Initialize(uint32_t flags, uint64_t arg3);
 
     SyscallError Close();
     SyscallError Read(void* data_buffer, size_t data_size, size_t* read_size);
@@ -19,9 +22,7 @@ namespace uplift::devices
     SyscallError MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation);
 
   private:
-    std::string path_;
     uint32_t flags_;
-    uint32_t mode_;
-    bool is_initialized_;
+    uint64_t arg3_;
   };
 }

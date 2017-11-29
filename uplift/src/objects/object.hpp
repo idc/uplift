@@ -29,6 +29,9 @@ namespace uplift::objects
       Device,
       File,
       Socket,
+      SharedMemory,
+      Eport,
+      EventFlag,
     };
 
   protected:
@@ -57,10 +60,11 @@ namespace uplift::objects
 
   public:
     virtual SyscallError Close() = 0;
-    virtual SyscallError Read(void* data_buffer, size_t data_size, size_t* read_size) = 0;
-    virtual SyscallError Write(const void* data_buffer, size_t data_size, size_t* written_size) = 0;
-    virtual SyscallError IOControl(uint32_t request, void* argp) = 0;
-    virtual SyscallError MMap(void* addr, size_t len, int prot, int flags, off_t offset, void*& allocation) = 0;
+    virtual SyscallError Read(void* data_buffer, size_t data_size, size_t* read_size);
+    virtual SyscallError Write(const void* data_buffer, size_t data_size, size_t* written_size);
+    virtual SyscallError Truncate(int64_t length);
+    virtual SyscallError IOControl(uint32_t request, void* argp);
+    virtual SyscallError MMap(void* addr, size_t len, int prot, int flags, size_t offset, void*& allocation);
 
   protected:
     Runtime* runtime_;
