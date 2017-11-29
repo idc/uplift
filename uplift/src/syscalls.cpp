@@ -556,8 +556,8 @@ SYSCALL_IMPL(ftruncate, uint32_t fd, int64_t length)
     return false;
   }
 
-  object->Truncate(length);
-  return true;
+  retval.err = object->Truncate(length);
+  return IS_SUCCESS(retval.err);
 }
 
 SYSCALL_IMPL(shm_open, const char* path, uint32_t flags, uint16_t mode)
