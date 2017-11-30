@@ -10,11 +10,13 @@
 
 #include "objects/_objects.hpp"
 #include "devices/_devices.hpp"
+#include "ipmi/_ipmi.h"
 #include "sockets/_sockets.hpp"
 
 using namespace uplift;
 using namespace uplift::syscall_errors;
 using namespace uplift::devices;
+using namespace uplift::ipmi;
 using namespace uplift::objects;
 using namespace uplift::sockets;
 
@@ -715,21 +717,56 @@ SYSCALL_IMPL(evf_open, const char* name)
   return true;
 }
 
-SYSCALL_IMPL(osem_create, const char* arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
+SYSCALL_IMPL(osem_create, const char *name, uint32_t flags, uint32_t arg3, uint32_t arg4)
 {
-  retval.val = 0xF00DBABE;
-  return true;
+  printf("osem_create: %s %x %x %x\n", name, flags, arg3, arg4);
 
-  assert_always();
-  return false;
+  auto osem = object_ref<Semaphore>(new Semaphore(runtime)).get();
+  SCERR result = osem->Initialize(flags, arg3, arg4);
+  if (IS_ERROR(result))
+  {
+    osem->ReleaseHandle();
+    retval.err = SCERR::eAGAIN;
+    return false;
+  }
+  runtime->object_table()->AddNameMapping(std::string(name), osem->handle());
+  retval.val = osem->handle();
+  return true;
 }
 
-SYSCALL_IMPL(osem_delete)
+SYSCALL_IMPL(osem_delete, uint32_t handle)
 {
+  printf("osem_delete: %x\n", handle);
+  auto osem = runtime->object_table()->LookupObject<Semaphore>(static_cast<ObjectHandle>(handle)).get();
+  if (!osem)
+  {
+    assert_always();
+    retval.err = SCERR::eBADF;
+    return false;
+  }
+  osem->Close();
+  osem->ReleaseHandle();
   return true;
+}
 
-  assert_always();
-  return false;
+SYSCALL_IMPL(osem_open, const char* name)
+{
+  printf("osem_open: %s\n", name);
+  ObjectHandle handle;
+  if (!runtime->object_table()->GetObjectByName(std::string(name), &handle))
+  {
+    retval.err = SCERR::eSRCH;
+    return false;
+  }
+  auto object = runtime->object_table()->LookupObject<Semaphore>(handle).get();
+  if (!object)
+  {
+    retval.err = SCERR::eSRCH;
+    return false;
+  }
+  object->RetainHandle();
+  retval.val = object->handle();
+  return true;
 }
 
 SYSCALL_IMPL(namedobj_create, const char* name, void* arg2, uint32_t arg3)
@@ -953,6 +990,7 @@ SYSCALL_IMPL(mdbg_service, uint32_t op, void* arg2, void* arg3)
     return true;
   }
 
+  assert_always();
   retval.val = -1;
   return false;
 }
@@ -1118,7 +1156,7 @@ enum class ipmimgr_op : uint32_t
   __u531 = 531, // connect related
   __u546 = 546,
   __u547 = 547,
-  __u561 = 561,
+  __u561 = 561, // InvokeSyncMethod
   __u563 = 563,
   InvokeAsyncMethod = 577,
   TryGetResult = 579,
@@ -1130,13 +1168,13 @@ enum class ipmimgr_op : uint32_t
   __u609 = 609,
 };
 
-SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* data_buffer, size_t data_size, uint64_t cookie)
+SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t handle, uint32_t* result, void* args_buffer, size_t args_size, uint64_t cookie)
 {
-  printf("ipmimgr_call: %u, %u, %p, %p, %I64x, %I64x\n", op, subop, error, data_buffer, data_size, cookie);
+  printf("ipmimgr_call: %u, %u, %p, %p, %I64x, %I64x\n", op, handle, result, args_buffer, args_size, cookie);
 
-  if (data_size > 64)
+  if (args_size > 64)
   {
-    retval.val = 0x800E0001;
+    *result = 0x800E0001;
     return false;
   }
 
@@ -1144,70 +1182,141 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* d
   {
     case ipmimgr_op::CreateClient:
     {
-      struct op_arg_3
-      {
-        uint8_t unknown_0[336];
-      };
       struct op_args
       {
         void* arg1;
-        const char* arg2;
-        op_arg_3* arg3;
+        const char* name;
+        void* arg3;
       };
-      auto args = static_cast<op_args*>(data_buffer);
-
-      printf("ipmimgr_call create: %s\n", args->arg2);
-
-      *error = 0;
-      retval.val = 0;
+      auto args = static_cast<op_args*>(args_buffer);
+      printf("ipmimgr_call create: %s\n", args->name);
+      auto ipmi_client = object_ref<IpmiClient>(new IpmiClient(runtime)).get();
+      auto init_result = ipmi_client->Initialize(args->arg1, std::string(args->name), args->arg3);
+      if (IS_ERROR(init_result))
+      {
+        ipmi_client->ReleaseHandle();
+        retval.err = init_result;
+        return false;
+      }
+      *result = ipmi_client->handle();
       return true;
     }
 
     case ipmimgr_op::DestroyClient:
     {
-      *error = 0;
+      assert_always();
+      *result = 0;
       retval.val = 0;
       return true;
     }
 
     case ipmimgr_op::Trace:
     {
-      if (!data_buffer || data_size < 64)
+      if (!args_buffer || args_size < 64)
       {
-        retval.val = 22; // EINVAL
+        retval.err = SCERR::eINVAL;
         return false;
       }
-
-      *error = 0;
-      retval.val = 0;
+      struct trace_args
+      {
+        uint32_t client_handle;
+        uint32_t unknown_04;
+        char name[25];
+        uint32_t unknown_24;
+        uint32_t unknown_28;
+        uint32_t unknown_2C;
+        uint32_t unknown_30;
+        uint32_t unknown_34;
+        uint32_t unknown_38;
+        uint32_t unknown_3C;
+      };
+      static_assert_size(trace_args, 64);
+      auto args = static_cast<trace_args*>(args_buffer);
+      printf("ipmi trace(%u): client handle=%d %u name='%s' %u %u %u %u %u %u %u\n", handle, args->client_handle, args->unknown_04, args->name, args->unknown_24, args->unknown_28, args->unknown_2C, args->unknown_30, args->unknown_34, args->unknown_38, args->unknown_3C);
+      *result = 0;
       return true;
     }
 
-    case ipmimgr_op::__u529:
+    case ipmimgr_op::__u529: // prepare connect?
     {
-      struct op_arg_1
+      struct op_data
       {
-        uint8_t unknown_0[352];
+        uint32_t pid;
+        uint32_t unknown_004;
+        uint32_t unknown_008;
+        uint32_t unknown_00C;
+        uint64_t unknown_010;
+        uint64_t unknown_018;
+        uint32_t unknown_020;
+        uint32_t unknown_024;
+        uint64_t unknown_028;
+        uint64_t unknown_030;
+        uint32_t event_flag_count;
+        uint32_t unknown_03C;
+        uint32_t unknown_040;
+        uint32_t unknown_044;
+        uint64_t unknown_048[32]; // just to reduce the complexity of the struct for now
+        uint64_t unknown_148;
+        uint32_t unknown_150;
+        uint32_t unknown_154;
+        uint32_t unknown_158;
+        uint32_t client_handle;
       };
+      static_assert_size(op_data, 352);
       struct op_args
       {
-        op_arg_1* arg1;
+        op_data* data;
         uint64_t arg2;
-        size_t arg1_size;
+        size_t data_size;
         uint64_t arg4;
       };
-      auto args = static_cast<op_args*>(data_buffer);
-
-      *error = 0;
-      retval.val = 0;
+      auto args = static_cast<op_args*>(args_buffer);
+      auto ipmi_client = runtime->object_table()->LookupObject<IpmiClient>(static_cast<ObjectHandle>(handle)).get();
+      if (!ipmi_client)
+      {
+        retval.err = SCERR::eNOENT;
+        return false;
+      }
+      auto prepare_result = ipmi_client->PrepareConnect(args->data->event_flag_count);
+      if (IS_ERROR(prepare_result))
+      {
+        retval.err = prepare_result;
+        return false;
+      }
+      *result = 0;
       return true;
     }
 
-    case ipmimgr_op::__u530:
-    case ipmimgr_op::__u531:
+    case ipmimgr_op::__u531: // connect?
     {
-      *error = 0;
-      retval.val = 0;
+      struct op_args
+      {
+        uint64_t* session_key;
+        uint32_t* unknown;
+        uint32_t* session_id;
+        uint32_t* result;
+      };
+      auto args = static_cast<op_args*>(args_buffer);
+      auto ipmi_client = runtime->object_table()->LookupObject<IpmiClient>(static_cast<ObjectHandle>(handle)).get();
+      if (!ipmi_client)
+      {
+        retval.err = SCERR::eNOENT;
+        return false;
+      }
+      auto connect_result = ipmi_client->Connect(args->session_key, args->unknown, args->session_id, args->result);
+      if (IS_ERROR(connect_result))
+      {
+        retval.err = connect_result;
+        return false;
+      }
+      *result = 0;
+      return true;
+    }
+
+    case ipmimgr_op::__u561:
+    case ipmimgr_op::__u563:
+    {
+      *result = 0;
       return true;
     }
   }
@@ -1215,6 +1324,14 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* d
   assert_always();
   retval.val = -1;
   return false;
+}
+
+SYSCALL_IMPL(utc_to_localtime, uint64_t arg1, uint64_t* arg2, void* arg3, uint32_t* arg4)
+{
+  if (arg2) *arg2 = arg1; // just for now
+  if (arg3) std::memset(arg3, 0, 16);
+  if (arg4) *arg4 = 0;
+  return true;
 }
 
 SYSCALL_IMPL(dynlib_get_obj_member, uint32_t handle, uint8_t index, void** value)

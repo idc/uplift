@@ -28,11 +28,13 @@ namespace uplift::objects
       Module,
       Device,
       File,
+      SharedMemory,
       Socket,
       Queue,
-      SharedMemory,
+      Semaphore,
       Eport,
       EventFlag,
+      IpmiClient,
     };
 
   protected:

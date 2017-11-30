@@ -16,6 +16,9 @@
     <Filter Include="objects">
       <UniqueIdentifier>{53ef6530-3418-4407-bd0c-042da0c7c4f9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ipmi">
+      <UniqueIdentifier>{e2034113-220a-4cc3-b75e-a25e4b1a73a7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\stdafx\stdafx.h">
@@ -92,6 +95,15 @@
     <ClInclude Include="src\objects\queue.hpp">
       <Filter>objects</Filter>
     </ClInclude>
+    <ClInclude Include="src\ipmi\ipmi_client.hpp">
+      <Filter>ipmi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ipmi\_ipmi.h">
+      <Filter>ipmi</Filter>
+    </ClInclude>
+    <ClInclude Include="src\objects\semaphore.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -152,6 +164,12 @@
       <Filter>objects</Filter>
     </ClCompile>
     <ClCompile Include="src\objects\object.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ipmi\ipmi_client.cpp">
+      <Filter>ipmi</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\semaphore.cpp">
       <Filter>objects</Filter>
     </ClCompile>
   </ItemGroup>
