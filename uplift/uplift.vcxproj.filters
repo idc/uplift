@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="objects">
-      <UniqueIdentifier>{53ef6530-3418-4407-bd0c-042da0c7c4f9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="devices">
       <UniqueIdentifier>{5c8cbee7-0e08-4d69-89be-e53468c6204a}</UniqueIdentifier>
     </Filter>
@@ -15,6 +12,9 @@
     </Filter>
     <Filter Include="_misc\stdafx">
       <UniqueIdentifier>{d04c7808-9b83-4438-b8ee-649dc3c96dbe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="objects">
+      <UniqueIdentifier>{53ef6530-3418-4407-bd0c-042da0c7c4f9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -89,6 +89,9 @@
     <ClInclude Include="src\objects\shared_memory.hpp">
       <Filter>objects</Filter>
     </ClInclude>
+    <ClInclude Include="src\objects\queue.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\stdafx\stdafx.cpp">
@@ -104,9 +107,6 @@
     <ClCompile Include="src\code_generators.cpp" />
     <ClCompile Include="src\module.cpp" />
     <ClCompile Include="src\runtime.cpp" />
-    <ClCompile Include="src\objects\object.cpp">
-      <Filter>objects</Filter>
-    </ClCompile>
     <ClCompile Include="src\object_table.cpp" />
     <ClCompile Include="src\devices\console_device.cpp">
       <Filter>devices</Filter>
@@ -148,6 +148,12 @@
       <Filter>objects</Filter>
     </ClCompile>
     <ClCompile Include="src\syscalls_win.cpp" />
+    <ClCompile Include="src\objects\queue.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\objects\object.cpp">
+      <Filter>objects</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\syscall_table.inl" />

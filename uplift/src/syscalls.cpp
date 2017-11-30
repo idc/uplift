@@ -437,6 +437,20 @@ SYSCALL_IMPL(sigprocmask)
   return true;
 }
 
+SYSCALL_IMPL(kqueue)
+{
+  auto queue = object_ref<Queue>(new Queue(runtime)).get();
+  SCERR result = SUCCESS; // Init?
+  if (IS_ERROR(result))
+  {
+    queue->ReleaseHandle();
+    retval.err = SCERR::eAGAIN;
+    return false;
+  }
+  retval.val = queue->handle();
+  return true;
+}
+
 SYSCALL_IMPL(sigaction)
 {
   return true;
@@ -469,7 +483,12 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
 {
   printf("mmap: addr=%p, len=%I64x, prot=%x, flags=%x, fd=%d, offset=%I64x", addr, len, prot, flags, fd, offset);
 
-  assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x1000 | 0x2000)));
+  assert_true(!(flags & ~(0x1 | 0x2 | 0x10 | 0x100 | 0x400 | 0x1000 | 0x2000)));
+
+  if (flags & 0x400)
+  {
+    flags |= 0x1000;
+  }
 
   void* allocation = nullptr;
   SCERR result = SUCCESS;
@@ -515,6 +534,11 @@ SYSCALL_IMPL(mmap, void* addr, size_t len, uint32_t prot, uint32_t flags, uint32
   if (flags & 0x1000) // anonymous
   {
     std::memset(allocation, 0, len);
+  }
+
+  if (flags & 0x400) // stack
+  {
+    allocation = &static_cast<uint8_t*>(allocation)[len];
   }
 
   retval.ptr = allocation;
@@ -1182,7 +1206,7 @@ SYSCALL_IMPL(ipmimgr_call, uint32_t op, uint32_t subop, uint32_t* error, void* d
     case ipmimgr_op::__u530:
     case ipmimgr_op::__u531:
     {
-      *error = -1;
+      *error = 0;
       retval.val = 0;
       return true;
     }

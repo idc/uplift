@@ -19,6 +19,7 @@ SYSCALL(165, sysarch, int number, void* args);
 SYSCALL(202, sysctl, int* name, uint32_t namelen, void* oldp, size_t* oldlenp, const void* newp, size_t newlen);
 SYSCALL(232, clock_gettime, uint32_t clock_id, void* tp);
 SYSCALL(340, sigprocmask);
+SYSCALL(362, kqueue);
 SYSCALL(416, sigaction);
 SYSCALL(432, thr_self, void** arg1);
 SYSCALL(454, _umtx_op, void* obj, int op, uint32_t val, void* uaddr1, void* uaddr2);

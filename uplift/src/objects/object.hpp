@@ -29,6 +29,7 @@ namespace uplift::objects
       Device,
       File,
       Socket,
+      Queue,
       SharedMemory,
       Eport,
       EventFlag,

@@ -29,7 +29,7 @@ namespace uplift
     Module(Runtime* runtime, const std::wstring& path);
     virtual ~Module();
 
-    std::wstring name() const { return name_; }
+    const std::wstring& name() const { return name_; }
 
     uint32_t order() const { return order_; }
 

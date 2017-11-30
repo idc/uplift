@@ -62,6 +62,7 @@
       <AdditionalIncludeDirectories>src\stdafx;..\third_party;..\third_party\llvm\include;..\third_party\xbyak\include;..\third_party\xenia_base\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ShowIncludes>false</ShowIncludes>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -80,6 +81,7 @@
       <AdditionalIncludeDirectories>src\stdafx;..\third_party;..\third_party\llvm\include;..\third_party\xbyak\include;..\third_party\xenia_base\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ShowIncludes>false</ShowIncludes>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -107,6 +109,7 @@
     <ClInclude Include="src\objects\event_flag.hpp" />
     <ClInclude Include="src\objects\file.hpp" />
     <ClInclude Include="src\objects\object.hpp" />
+    <ClInclude Include="src\objects\queue.hpp" />
     <ClInclude Include="src\objects\shared_memory.hpp" />
     <ClInclude Include="src\objects\_objects.hpp" />
     <ClInclude Include="src\runtime.hpp" />
@@ -141,6 +144,7 @@
     <ClCompile Include="src\objects\event_flag.cpp" />
     <ClCompile Include="src\objects\file.cpp" />
     <ClCompile Include="src\objects\object.cpp" />
+    <ClCompile Include="src\objects\queue.cpp" />
     <ClCompile Include="src\objects\shared_memory.cpp" />
     <ClCompile Include="src\runtime.cpp" />
     <ClCompile Include="src\main.cpp" />
