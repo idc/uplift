@@ -273,3 +273,48 @@ void simulate_blsi(cs_insn* insn, xe::X64Context* thread_context)
 
   thread_context->rip += insn->size;
 }
+
+void simulate_blsr(cs_insn* insn, xe::X64Context* thread_context)
+{
+  assert_true(insn->detail->x86.op_count == 2);
+
+  auto src1 = read_operand(insn->detail->x86.operands[1], thread_context);
+#pragma warning(suppress: 4146)
+  auto result = (src1 - 1) & src1;
+  write_operand(insn->detail->x86.operands[0], thread_context, result);
+
+  bool is_carry, is_zero, is_sign;
+  if (insn->detail->x86.operands[1].size == 4)
+  {
+    is_carry = (src1 & UINT32_MAX) == 0;
+  }
+  else if (insn->detail->x86.operands[1].size == 8)
+  {
+    is_carry = src1 == 0;
+  }
+  else
+  {
+    assert_always();
+  }
+  if (insn->detail->x86.operands[0].size == 4)
+  {
+    is_zero = (result & UINT32_MAX) == 0;
+    is_sign = (result & 0x80000000ull) != 0;
+  }
+  else if (insn->detail->x86.operands[0].size == 8)
+  {
+    is_zero = result == 0;
+    is_sign = (result & 0x8000000000000000ull) != 0;
+  }
+  else
+  {
+    assert_always();
+  }
+
+  UPDATE_CF(is_carry);
+  UPDATE_ZF(is_zero);
+  UPDATE_SF(is_sign);
+  UPDATE_OF(false);
+
+  thread_context->rip += insn->size;
+}

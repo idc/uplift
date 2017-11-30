@@ -249,14 +249,19 @@ bool Runtime::HandleException(xe::Exception* ex)
         simulate_andn(insn, thread_context);
         result = true;
       }
+      else if (insn->id == X86_INS_BEXTR)
+      {
+        simulate_bextr(insn, thread_context);
+        result = true;
+      }
       else if (insn->id == X86_INS_BLSI)
       {
         simulate_blsi(insn, thread_context);
         result = true;
       }
-      else if (insn->id == X86_INS_BEXTR)
+      else if (insn->id == X86_INS_BLSR)
       {
-        simulate_bextr(insn, thread_context);
+        simulate_blsr(insn, thread_context);
         result = true;
       }
     }
