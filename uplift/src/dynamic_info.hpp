@@ -18,7 +18,7 @@ namespace uplift
         uint32_t name_offset;
         uint8_t version_minor;
         uint8_t version_major;
-        uint8_t id;
+        uint16_t id;
       };
     };
     uint16_t attributes;

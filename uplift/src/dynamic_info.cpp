@@ -384,15 +384,26 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
 
       case 0x61000011ll:
       {
-        auto id = static_cast<uint8_t>((entry->d_un.d_val >> 48) & 0xFF);
-        auto it = std::find_if(info.modules.begin(), info.modules.end(), [&id](ModuleInfo& m) { return m.id == id; });
+        union
+        {
+          uint64_t value;
+          struct
+          {
+            uint16_t attributes;
+            uint16_t unknown_02;
+            uint16_t unknown_04;
+            uint16_t id;
+          };
+        } flags = { entry->d_un.d_val };
+
+        auto it = std::find_if(info.modules.begin(), info.modules.end(), [&flags](ModuleInfo& m) { return m.id == flags.id; });
         if (it == info.modules.end())
         {
           return false;
         }
         auto index = std::distance(info.modules.begin(), it);
         auto module = info.modules[index];
-        module.attributes = static_cast<uint16_t>(entry->d_un.d_val & 0xFFFFu);
+        module.attributes = flags.attributes;
         info.modules[index] = module;
         break;
       }
@@ -412,15 +423,26 @@ bool uplift::get_dynamic_info(elf::Elf64_Dyn* entry, size_t entry_count, uint8_t
       case 0x61000017ll:
       case 0x61000019ll:
       {
-        auto id = static_cast<uint8_t>((entry->d_un.d_val >> 48) & 0xFF);
-        auto it = std::find_if(info.libraries.begin(), info.libraries.end(), [&id](LibraryInfo& l) { return l.id == id; });
+        union
+        {
+          uint64_t value;
+          struct
+          {
+            uint16_t attributes;
+            uint16_t unknown_02;
+            uint16_t unknown_04;
+            uint16_t id;
+          };
+        } flags = { entry->d_un.d_val };
+
+        auto it = std::find_if(info.libraries.begin(), info.libraries.end(), [&flags](LibraryInfo& l) { return l.id == flags.id; });
         if (it == info.libraries.end())
         {
           return false;
         }
         auto index = std::distance(info.libraries.begin(), it);
         auto library = info.libraries[index];
-        library.attributes = static_cast<uint16_t>(entry->d_un.d_val & 0xFFFFu);
+        library.attributes = flags.attributes;
         info.libraries[index] = library;
         break;
       }
