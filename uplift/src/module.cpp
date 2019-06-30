@@ -13,8 +13,8 @@
 
 #include <llvm/BinaryFormat/ELF.h>
 
-#include <capstone/include/capstone.h>
-#include <capstone/include/x86.h>
+#include <capstone/capstone.h>
+#include <capstone/x86.h>
 
 #include <xbyak/xbyak.h>
 

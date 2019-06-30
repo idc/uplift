@@ -9,8 +9,8 @@
 #include <xenia/base/string.h>
 #include <xenia/base/x64_context.h>
 
-#include <capstone/include/capstone.h>
-#include <capstone/include/x86.h>
+#include <capstone/capstone.h>
+#include <capstone/x86.h>
 
 #include <xbyak/xbyak.h>
 
