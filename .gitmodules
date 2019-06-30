@@ -7,3 +7,7 @@
 [submodule "xbyak"]
 	path = third_party/xbyak
 	url = https://github.com/idc/xbyak.git
+[submodule "third_party/ps4libdoc"]
+	path = third_party/ps4libdoc
+	url = https://github.com/idc/ps4libdoc.git
+	branch = header
